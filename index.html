@@ -534,13 +534,20 @@ function getHeaders() {
   return { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' };
 }
 
-async function callClaude(system, user, imageBase64) {
-  let content = [{ type: 'text', text: user }];
+async function callClaude(system, user, imageBase64, extraImages) {
+  let content = [];
+  // Add all images first, then the text
   if (imageBase64) {
-    content = [
-      { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
-      { type: 'text', text: user }
-    ];
+    content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } });
+  }
+  if (extraImages && extraImages.length) {
+    extraImages.forEach(img => {
+      content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img.base64 } });
+    });
+  }
+  content.push({ type: 'text', text: user });
+  if (!content.length || (content.length === 1 && content[0].type === 'text')) {
+    content = [{ type: 'text', text: user }];
   }
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST', headers: getHeaders(),
@@ -1022,7 +1029,8 @@ Each prompt must have a different angle combining: shot composition variety, dif
 
     // Use first reference image as primary visual anchor if available
     const primaryImage = qgRefImages.length > 0 ? qgRefImages[0].base64 : null;
-    const raw = await callClaude(QUICKGEN_SYSTEM, userPrompt, primaryImage);
+    const extraImages = qgRefImages.length > 1 ? qgRefImages.slice(1) : [];
+    const raw = await callClaude(QUICKGEN_SYSTEM, userPrompt, primaryImage, extraImages);
     const parsed = parseJSON(raw);
     if (!parsed || !parsed.prompts) throw new Error('Could not parse prompts. Try again.');
     renderQuickPrompts(parsed.prompts);
