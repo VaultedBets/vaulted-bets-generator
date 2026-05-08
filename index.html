@@ -4,229 +4,198 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vaulted Bets — Ad Intelligence System</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
-  @keyframes spin { to { transform: rotate(360deg); } }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; background: #050505; color: #e0e0e0; font-family: 'EB Garamond', Georgia, serif; }
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: #0a0a0a; }
   ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
 
-  /* API KEY SCREEN */
-  #apiScreen {
-    position: fixed; inset: 0; background: #050505;
-    display: flex; align-items: center; justify-content: center;
-    z-index: 100;
-  }
-  .api-box {
-    width: 420px; border: 1px solid #2a2a2a; border-radius: 8px;
-    background: #080808; padding: 36px;
-  }
-  .api-box .eyebrow { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 4px; color: #f5a623; margin-bottom: 8px; }
-  .api-box h1 { font-size: 22px; font-weight: 600; color: #fff; margin-bottom: 6px; }
-  .api-box p { font-size: 13px; color: #666; line-height: 1.6; margin-bottom: 24px; }
-  .api-box input {
-    width: 100%; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 4px;
-    color: #ccc; padding: 11px 14px; font-family: 'Space Mono', monospace; font-size: 12px;
-    margin-bottom: 12px; outline: none;
-  }
-  .api-box input:focus { border-color: #f5a62366; }
-  .api-note { font-size: 11px; color: #444; font-family: 'Space Mono', monospace; margin-top: 10px; }
-  .api-note a { color: #f5a62388; }
+  /* API SCREEN */
+  #apiScreen { position:fixed;inset:0;background:#050505;display:flex;align-items:center;justify-content:center;z-index:100; }
+  .api-box { width:420px;border:1px solid #2a2a2a;border-radius:8px;background:#080808;padding:36px; }
+  .api-box .eyebrow { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:4px;color:#f5a623;margin-bottom:8px; }
+  .api-box h1 { font-size:22px;font-weight:600;color:#fff;margin-bottom:6px; }
+  .api-box p { font-size:13px;color:#666;line-height:1.6;margin-bottom:24px; }
+  .api-box input { width:100%;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:4px;color:#ccc;padding:11px 14px;font-family:'Space Mono',monospace;font-size:12px;margin-bottom:12px;outline:none; }
+  .api-note { font-size:11px;color:#444;font-family:'Space Mono',monospace;margin-top:10px; }
+  .api-note a { color:#f5a62388; }
 
   /* LAYOUT */
-  #app { display: none; height: 100vh; flex-direction: column; }
-  #app.visible { display: flex; }
+  #app { display:none;height:100vh;flex-direction:column; }
+  #app.visible { display:flex; }
 
   /* HEADER */
-  .header {
-    border-bottom: 1px solid #1a1a1a; padding: 18px 28px;
-    display: flex; align-items: center; justify-content: space-between;
-    background: #060606; flex-shrink: 0;
-  }
-  .header-eyebrow { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 4px; color: #f5a623; margin-bottom: 3px; }
-  .header-title { font-size: 20px; font-weight: 600; color: #fff; letter-spacing: -0.3px; }
-  .header-meta { font-family: 'Space Mono', monospace; font-size: 9px; color: #333; letter-spacing: 1px; text-align: right; line-height: 1.8; }
+  .header { border-bottom:1px solid #1a1a1a;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;background:#060606;flex-shrink:0; }
+  .header-left .eyebrow { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:4px;color:#f5a623;margin-bottom:3px; }
+  .header-left .title { font-size:20px;font-weight:600;color:#fff;letter-spacing:-0.3px; }
+  .header-right { display:flex;align-items:center;gap:8px; }
+
+  /* NAV TABS */
+  .nav-tabs { display:flex;border-bottom:1px solid #111;background:#060606;flex-shrink:0;padding:0 28px; }
+  .nav-tab { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;color:#444;padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s; }
+  .nav-tab:hover { color:#888; }
+  .nav-tab.active { color:#f5a623;border-bottom-color:#f5a623; }
 
   /* BODY */
-  .body { display: grid; grid-template-columns: 380px 1fr; flex: 1; min-height: 0; }
+  .body { flex:1;min-height:0;overflow:hidden; }
+  .tab-panel { display:none;height:100%;overflow:hidden; }
+  .tab-panel.active { display:flex; }
 
   /* LEFT PANEL */
-  .left { padding: 20px 16px; border-right: 1px solid #111; overflow-y: auto; }
-  .workflow-label { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 3px; color: #333; margin-bottom: 14px; }
-
-  /* STEP CARDS */
-  .step-card {
-    border: 1px solid #2a2a2a; border-radius: 6px; margin-bottom: 8px;
-    overflow: hidden; cursor: pointer; background: #080808;
-    transition: border-color 0.2s;
-  }
-  .step-card.active { border-color: #f5a623; background: #0e0e0e; }
-  .step-card.done { border-color: #00e5a044; }
-  .step-card.error-state { border-color: #ff444444; }
-  .step-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 13px 16px;
-  }
-  .step-left { display: flex; align-items: center; gap: 12px; }
-  .step-icon { font-size: 16px; color: #444; transition: color 0.2s; }
-  .step-card.active .step-icon { color: #f5a623; }
-  .step-card.done .step-icon { color: #00e5a0; }
-  .step-label { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #555; }
-  .step-card.active .step-label { color: #f5a623; }
-  .step-card.done .step-label { color: #00e5a0; }
-  .step-desc { font-size: 11px; color: #555; margin-top: 2px; }
-  .step-body { padding: 0 16px 16px; border-top: 1px solid #1a1a1a; }
-  .step-intro { font-size: 12px; color: #666; line-height: 1.7; margin: 14px 0; }
-
-  /* BADGE */
-  .badge {
-    font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 2px;
-    padding: 2px 7px; border-radius: 2px; border: 1px solid;
-    white-space: nowrap;
-  }
-  .badge-idle { color: #3a3a3a; border-color: #3a3a3a; }
-  .badge-running { color: #f5a623; border-color: #f5a623; animation: pulse 1.4s ease-in-out infinite; }
-  .badge-done { color: #00e5a0; border-color: #00e5a0; }
-  .badge-error { color: #ff4444; border-color: #ff4444; }
-
-  /* INPUTS */
-  .target-box {
-    background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 4px;
-    padding: 9px 12px; margin-bottom: 12px;
-  }
-  .target-label { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 2px; color: #333; margin-bottom: 3px; }
-  .target-value { font-family: 'Space Mono', monospace; font-size: 11px; color: #777; }
-  textarea.voc-input {
-    width: 100%; min-height: 130px; background: #0a0a0a;
-    border: 1px solid #1e1e1e; border-radius: 4px; color: #ccc;
-    padding: 11px; font-size: 12px; font-family: 'Space Mono', monospace;
-    line-height: 1.6; margin-bottom: 10px; outline: none; resize: vertical;
-  }
-  textarea.voc-input:focus { border-color: #f5a62344; }
-
-  /* BUTTONS */
-  .btn {
-    background: linear-gradient(135deg, #f5a623, #e8920d);
-    border: none; color: #000; padding: 9px 20px; border-radius: 4px;
-    font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 2px;
-    cursor: pointer; font-weight: 700; transition: opacity 0.2s;
-  }
-  .btn:hover { opacity: 0.9; }
-  .btn:disabled { opacity: 0.35; cursor: not-allowed; background: linear-gradient(135deg, #f5a623, #e8920d); }
-  .btn.running {
-    background: transparent; border: 1px solid #f5a62366; color: #f5a623;
-    animation: pulse 1.4s ease-in-out infinite;
-  }
-  .btn-small {
-    background: transparent; border: 1px solid #f5a62344; color: #f5a623;
-    padding: 5px 12px; border-radius: 3px; font-family: 'Space Mono', monospace;
-    font-size: 9px; letter-spacing: 1px; cursor: pointer; margin-top: 10px;
-  }
-  .btn-small:hover { border-color: #f5a623; }
+  .left { padding:20px 16px;border-right:1px solid #111;overflow-y:auto;width:380px;flex-shrink:0; }
+  .section-label { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;color:#333;margin-bottom:14px; }
 
   /* RIGHT PANEL */
-  .right { padding: 22px 24px; overflow-y: auto; }
-  .panel { display: none; }
-  .panel.active { display: block; }
-  .panel-title { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 3px; color: #f5a623; margin-bottom: 16px; }
+  .right { flex:1;padding:22px 24px;overflow-y:auto; }
+  .panel { display:none; }
+  .panel.active { display:block; }
+  .panel-title { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;color:#f5a623;margin-bottom:16px; }
 
-  /* INFO GRID */
-  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-  .info-block { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 4px; padding: 13px; }
-  .info-label { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 2px; color: #444; margin-bottom: 5px; }
-  .info-value { font-size: 12px; color: #ccc; line-height: 1.6; }
+  /* STEP CARDS */
+  .step-card { border:1px solid #2a2a2a;border-radius:6px;margin-bottom:8px;overflow:hidden;cursor:pointer;background:#080808;transition:border-color 0.2s; }
+  .step-card.active { border-color:#f5a623;background:#0e0e0e; }
+  .step-card.done { border-color:#00e5a044; }
+  .step-card.error-state { border-color:#ff444444; }
+  .step-header { display:flex;align-items:center;justify-content:space-between;padding:13px 16px; }
+  .step-left { display:flex;align-items:center;gap:12px; }
+  .step-icon { font-size:16px;color:#444;transition:color 0.2s; }
+  .step-card.active .step-icon { color:#f5a623; }
+  .step-card.done .step-icon { color:#00e5a0; }
+  .step-label { font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:#555; }
+  .step-card.active .step-label { color:#f5a623; }
+  .step-card.done .step-label { color:#00e5a0; }
+  .step-desc { font-size:11px;color:#555;margin-top:2px; }
+  .step-body { padding:0 16px 16px;border-top:1px solid #1a1a1a; }
+  .step-intro { font-size:12px;color:#666;line-height:1.7;margin:14px 0; }
 
-  /* TAGS */
-  .tags-section { margin-bottom: 14px; }
-  .tags-label { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 2px; color: #444; margin-bottom: 7px; }
-  .tags-row { display: flex; flex-wrap: wrap; gap: 5px; }
-  .tag {
-    border-radius: 3px; font-family: 'Space Mono', monospace;
-    padding: 3px 10px; font-size: 10px; border: 1px solid;
-  }
+  /* BADGES */
+  .badge { font-family:'Space Mono',monospace;font-size:8px;letter-spacing:2px;padding:2px 7px;border-radius:2px;border:1px solid;white-space:nowrap; }
+  .badge-idle { color:#3a3a3a;border-color:#3a3a3a; }
+  .badge-running { color:#f5a623;border-color:#f5a623;animation:pulse 1.4s ease-in-out infinite; }
+  .badge-done { color:#00e5a0;border-color:#00e5a0; }
+  .badge-error { color:#ff4444;border-color:#ff4444; }
 
-  /* HOOKS */
-  .hook-item {
-    background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 4px;
-    padding: 11px 14px; margin-bottom: 7px; display: flex; gap: 12px; align-items: center;
-  }
-  .hook-num { color: #f5a623; font-family: 'Space Mono', monospace; font-size: 9px; flex-shrink: 0; }
-  .hook-text { font-size: 13px; color: #e0e0e0; }
+  /* INPUTS */
+  .target-box { background:#0a0a0a;border:1px solid #1a1a1a;border-radius:4px;padding:9px 12px;margin-bottom:12px; }
+  .target-label { font-family:'Space Mono',monospace;font-size:8px;letter-spacing:2px;color:#333;margin-bottom:3px; }
+  .target-value { font-family:'Space Mono',monospace;font-size:11px;color:#777; }
+  textarea.voc-input { width:100%;min-height:130px;background:#0a0a0a;border:1px solid #1e1e1e;border-radius:4px;color:#ccc;padding:11px;font-size:12px;font-family:'Space Mono',monospace;line-height:1.6;margin-bottom:10px;outline:none;resize:vertical; }
+  textarea.voc-input:focus { border-color:#f5a62344; }
 
-  /* COMPETITOR CARDS */
-  .comp-card { background: #0a0a0a; border: 1px solid #1e1e1e; border-radius: 6px; padding: 14px; margin-bottom: 10px; }
-  .comp-name { font-family: 'Space Mono', monospace; font-size: 11px; color: #f5a623; letter-spacing: 2px; margin-bottom: 8px; }
-  .comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
-  .whitespace-box { background: #060a06; border: 1px solid #00e5a022; border-radius: 6px; padding: 14px; margin: 14px 0; }
-  .whitespace-label { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 3px; color: #00e5a0; margin-bottom: 8px; }
-  .whitespace-text { font-size: 13px; color: #ccc; line-height: 1.7; }
+  /* BUTTONS */
+  .btn { background:linear-gradient(135deg,#f5a623,#e8920d);border:none;color:#000;padding:9px 20px;border-radius:4px;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;cursor:pointer;font-weight:700;transition:opacity 0.2s; }
+  .btn:hover { opacity:0.9; }
+  .btn:disabled { opacity:0.35;cursor:not-allowed; }
+  .btn.running { background:transparent;border:1px solid #f5a62366;color:#f5a623;animation:pulse 1.4s ease-in-out infinite; }
+  .btn-ghost { background:transparent;border:1px solid #2a2a2a;color:#888;padding:7px 14px;border-radius:4px;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;cursor:pointer; }
+  .btn-ghost:hover { border-color:#f5a62366;color:#f5a623; }
+  .btn-small { background:transparent;border:1px solid #f5a62344;color:#f5a623;padding:5px 12px;border-radius:3px;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;cursor:pointer;margin-top:10px; }
+  .btn-small:hover { border-color:#f5a623; }
 
-  /* CAMPAIGN THEME */
-  .theme-box { background: #0a0600; border: 1px solid #f5a62333; border-radius: 6px; padding: 14px; margin-bottom: 18px; }
-  .theme-label { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 3px; color: #f5a623; margin-bottom: 6px; }
-  .theme-text { font-size: 14px; color: #e0e0e0; font-style: italic; }
+  /* INFO */
+  .info-grid { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px; }
+  .info-block { background:#0a0a0a;border:1px solid #1a1a1a;border-radius:4px;padding:13px; }
+  .info-label { font-family:'Space Mono',monospace;font-size:8px;letter-spacing:2px;color:#444;margin-bottom:5px; }
+  .info-value { font-size:12px;color:#ccc;line-height:1.6; }
+  .tags-section { margin-bottom:14px; }
+  .tags-label { font-family:'Space Mono',monospace;font-size:8px;letter-spacing:2px;color:#444;margin-bottom:7px; }
+  .tags-row { display:flex;flex-wrap:wrap;gap:5px; }
+  .tag { border-radius:3px;font-family:'Space Mono',monospace;padding:3px 10px;font-size:10px;border:1px solid; }
+  .hook-item { background:#0a0a0a;border:1px solid #1a1a1a;border-radius:4px;padding:11px 14px;margin-bottom:7px;display:flex;gap:12px;align-items:center; }
+  .hook-num { color:#f5a623;font-family:'Space Mono',monospace;font-size:9px;flex-shrink:0; }
+  .hook-text { font-size:13px;color:#e0e0e0; }
 
-  /* FRAME CARDS */
-  .frame-card { border: 1px solid #1e1e1e; border-radius: 6px; margin-bottom: 8px; background: #0a0a0a; overflow: hidden; }
-  .frame-header {
-    padding: 13px 16px; cursor: pointer; display: flex;
-    align-items: center; justify-content: space-between;
-  }
-  .frame-header:hover { background: #0d0d0d; }
-  .frame-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .frame-type {
-    font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 2px;
-    padding: 2px 7px; border-radius: 2px; border: 1px solid;
-  }
-  .frame-type.static { color: #f5a623; border-color: #f5a62344; }
-  .frame-type.reel { color: #a855f7; border-color: #a855f744; }
-  .frame-num { font-family: 'Space Mono', monospace; font-size: 10px; color: #555; letter-spacing: 2px; }
-  .frame-headline { font-size: 13px; color: #e0e0e0; font-weight: 600; }
-  .frame-toggle { color: #444; font-size: 11px; }
-  .frame-body { padding: 0 16px 16px; border-top: 1px solid #151515; display: none; }
-  .frame-body.open { display: block; }
-  .frame-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
-  .frame-field { }
-  .frame-field.full { grid-column: 1 / -1; }
-  .field-label { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 2px; color: #444; margin-bottom: 3px; }
-  .field-value { font-size: 12px; color: #ccc; line-height: 1.6; }
-  .prompt-box { margin-top: 12px; background: #060606; border: 1px solid #f5a62322; border-radius: 4px; padding: 13px; }
-  .prompt-label { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 2px; color: #f5a623; margin-bottom: 7px; }
-  .prompt-text { font-size: 12px; color: #aaa; line-height: 1.7; }
+  /* COMPETITOR */
+  .comp-card { background:#0a0a0a;border:1px solid #1e1e1e;border-radius:6px;padding:14px;margin-bottom:10px; }
+  .comp-name { font-family:'Space Mono',monospace;font-size:11px;color:#f5a623;letter-spacing:2px;margin-bottom:8px; }
+  .comp-grid { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px; }
+  .whitespace-box { background:#060a06;border:1px solid #00e5a022;border-radius:6px;padding:14px;margin:14px 0; }
+  .whitespace-label { font-family:'Space Mono',monospace;font-size:8px;letter-spacing:3px;color:#00e5a0;margin-bottom:8px; }
 
-  /* AUDIENCE NOTES */
-  .audience-box { background: #080808; border: 1px solid #1e1e1e; border-radius: 6px; padding: 14px; margin-top: 14px; }
-  .audience-label { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 3px; color: #a78bfa; margin-bottom: 6px; }
-  .audience-text { font-size: 12px; color: #888; line-height: 1.7; }
+  /* FRAMES */
+  .theme-box { background:#0a0600;border:1px solid #f5a62333;border-radius:6px;padding:14px;margin-bottom:18px; }
+  .theme-label { font-family:'Space Mono',monospace;font-size:8px;letter-spacing:3px;color:#f5a623;margin-bottom:6px; }
+  .frame-card { border:1px solid #1e1e1e;border-radius:6px;margin-bottom:8px;background:#0a0a0a;overflow:hidden; }
+  .frame-header { padding:13px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between; }
+  .frame-header:hover { background:#0d0d0d; }
+  .frame-meta { display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
+  .frame-type { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;padding:2px 7px;border-radius:2px;border:1px solid; }
+  .frame-type.static { color:#f5a623;border-color:#f5a62344; }
+  .frame-type.reel { color:#a855f7;border-color:#a855f744; }
+  .frame-num { font-family:'Space Mono',monospace;font-size:10px;color:#555;letter-spacing:2px; }
+  .frame-headline { font-size:13px;color:#e0e0e0;font-weight:600; }
+  .frame-body { padding:0 16px 16px;border-top:1px solid #151515;display:none; }
+  .frame-fields { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px; }
+  .field-label { font-family:'Space Mono',monospace;font-size:8px;letter-spacing:2px;color:#444;margin-bottom:3px; }
+  .field-value { font-size:12px;color:#ccc;line-height:1.6; }
+  .prompt-box { margin-top:12px;background:#060606;border:1px solid #f5a62322;border-radius:4px;padding:13px; }
+  .prompt-label { font-family:'Space Mono',monospace;font-size:8px;letter-spacing:2px;color:#f5a623;margin-bottom:7px; }
+  .prompt-text { font-size:12px;color:#aaa;line-height:1.7; }
+  .audience-box { background:#080808;border:1px solid #1e1e1e;border-radius:6px;padding:14px;margin-top:14px; }
+  .audience-label { font-family:'Space Mono',monospace;font-size:8px;letter-spacing:3px;color:#a78bfa;margin-bottom:6px; }
 
   /* JSON VIEWER */
-  .json-viewer { margin-top: 12px; background: #060606; border: 1px solid #1e1e1e; border-radius: 4px; }
-  .json-toggle { padding: 7px 12px; display: flex; justify-content: space-between; cursor: pointer; border-bottom: 0; }
-  .json-toggle:hover { background: #0a0a0a; }
-  .json-toggle-label { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 2px; color: #00e5a0; }
-  .json-toggle-arrow { color: #444; font-size: 11px; }
-  .json-content { display: none; padding: 12px; max-height: 280px; overflow-y: auto; }
-  .json-content.open { display: block; border-top: 1px solid #1a1a1a; }
-  .json-content pre { font-family: 'Space Mono', monospace; font-size: 10px; color: #777; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+  .json-viewer { margin-top:12px;background:#060606;border:1px solid #1e1e1e;border-radius:4px; }
+  .json-toggle { padding:7px 12px;display:flex;justify-content:space-between;cursor:pointer; }
+  .json-toggle:hover { background:#0a0a0a; }
+  .json-toggle-label { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;color:#00e5a0; }
+  .json-content { display:none;padding:12px;max-height:280px;overflow-y:auto;border-top:1px solid #1a1a1a; }
+  .json-content pre { font-family:'Space Mono',monospace;font-size:10px;color:#777;line-height:1.6;white-space:pre-wrap;word-break:break-all; }
 
   /* LOG */
-  .log-box { margin-top: 28px; background: #060606; border: 1px solid #111; border-radius: 4px; }
-  .log-header { padding: 7px 12px; border-bottom: 1px solid #111; font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 2px; color: #2a2a2a; }
-  .log-body { padding: 9px 12px; max-height: 120px; overflow-y: auto; }
-  .log-line { font-family: 'Space Mono', monospace; font-size: 10px; color: #3a3a3a; margin-bottom: 2px; }
-  .log-line.recent { color: #555; }
+  .log-box { margin-top:28px;background:#060606;border:1px solid #111;border-radius:4px; }
+  .log-header { padding:7px 12px;border-bottom:1px solid #111;font-family:'Space Mono',monospace;font-size:8px;letter-spacing:2px;color:#2a2a2a; }
+  .log-body { padding:9px 12px;max-height:120px;overflow-y:auto; }
+  .log-line { font-family:'Space Mono',monospace;font-size:10px;color:#3a3a3a;margin-bottom:2px; }
+  .log-line.recent { color:#555; }
 
-  /* WARN */
-  .warn-box { background: #0f0a00; border: 1px solid #f5a62322; border-radius: 4px; padding: 9px 12px; margin-bottom: 12px; }
-  .warn-text { font-size: 11px; color: #f5a62399; font-family: 'Space Mono', monospace; }
+  .warn-box { background:#0f0a00;border:1px solid #f5a62322;border-radius:4px;padding:9px 12px;margin-bottom:12px; }
+  .warn-text { font-size:11px;color:#f5a62399;font-family:'Space Mono',monospace; }
+  .empty { display:flex;align-items:center;justify-content:center;height:180px;font-family:'Space Mono',monospace;font-size:11px;color:#222;letter-spacing:1px;text-align:center; }
 
-  /* EMPTY */
-  .empty { display: flex; align-items: center; justify-content: center; height: 180px; font-family: 'Space Mono', monospace; font-size: 11px; color: #222; letter-spacing: 1px; text-align: center; }
+  /* MODAL */
+  .modal { display:none;position:fixed;inset:0;background:#000000cc;z-index:200;align-items:center;justify-content:center; }
+  .modal-box { background:#0a0a0a;border:1px solid #2a2a2a;border-radius:8px;padding:32px;width:580px;max-height:85vh;overflow-y:auto; }
+  .modal-box.wide { width:720px; }
+  .modal-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:20px; }
+  .modal-title { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;color:#f5a623; }
+  .modal-close { background:transparent;border:none;color:#555;font-size:20px;cursor:pointer; }
+
+  /* BRANDING HUB */
+  .brand-asset { background:#0a0a0a;border:1px solid #1e1e1e;border-radius:6px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:14px; }
+  .brand-asset img { width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #2a2a2a;flex-shrink:0; }
+  .brand-asset-info { flex:1;min-width:0; }
+  .brand-asset-name { font-size:13px;color:#e0e0e0;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .brand-asset-meta { font-family:'Space Mono',monospace;font-size:9px;color:#444; }
+  .brand-asset-tag { font-family:'Space Mono',monospace;font-size:8px;letter-spacing:1px;padding:2px 7px;border-radius:2px;border:1px solid; }
+  .upload-zone { border:1px dashed #2a2a2a;border-radius:6px;padding:28px;text-align:center;cursor:pointer;transition:border-color 0.2s;margin-bottom:14px; }
+  .upload-zone:hover { border-color:#f5a62366; }
+  .upload-zone input { display:none; }
+
+  /* QUICK GEN */
+  .qg-section { margin-bottom:20px; }
+  .qg-label { font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;color:#444;margin-bottom:10px; }
+  .toggle-group { display:flex;gap:6px; }
+  .toggle-btn { font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;padding:7px 16px;border-radius:4px;border:1px solid #2a2a2a;background:transparent;color:#666;cursor:pointer;transition:all 0.2s; }
+  .toggle-btn.selected { border-color:#f5a623;color:#f5a623;background:#f5a62311; }
+  .ref-image-box { border:1px solid #1e1e1e;border-radius:6px;overflow:hidden;margin-bottom:14px;position:relative; }
+  .ref-image-box img { width:100%;max-height:200px;object-fit:cover;display:block; }
+  .ref-image-overlay { position:absolute;inset:0;background:#00000066;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.2s;cursor:pointer; }
+  .ref-image-box:hover .ref-image-overlay { opacity:1; }
+  .quick-prompt-card { background:#0a0a0a;border:1px solid #1e1e1e;border-radius:6px;padding:16px;margin-bottom:10px; }
+  .qp-num { font-family:'Space Mono',monospace;font-size:9px;color:#f5a623;letter-spacing:2px;margin-bottom:8px; }
+  .qp-angle { font-size:13px;color:#e0e0e0;font-weight:600;margin-bottom:6px; }
+  .qp-objective { font-family:'Space Mono',monospace;font-size:9px;color:#666;margin-bottom:10px; }
+  .qp-prompt { font-size:12px;color:#aaa;line-height:1.7;background:#060606;border:1px solid #f5a62322;border-radius:4px;padding:12px;margin-top:8px; }
+
+  /* LIBRARY */
+  .lib-item { border:1px solid #1e1e1e;border-radius:6px;padding:14px 16px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:border-color 0.2s; }
+  .lib-item:hover { border-color:#f5a62366; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -235,260 +204,316 @@
   <div class="api-box">
     <div class="eyebrow">VAULTED BETS — AD INTELLIGENCE SYSTEM</div>
     <h1>Creative Generator</h1>
-    <p>Enter your Anthropic API key to run the 5-step ad intelligence workflow locally in your browser.</p>
-    <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off" />
+    <p>Enter your Anthropic API key to run the 5-step ad intelligence workflow.</p>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off"/>
     <button class="btn" onclick="startApp()" style="width:100%">LAUNCH</button>
-    <div class="api-note">Your key stays local — never sent anywhere except api.anthropic.com<br>Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></div>
+    <div class="api-note">Key stays local — only sent to api.anthropic.com<br>Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></div>
   </div>
 </div>
 
 <!-- MAIN APP -->
 <div id="app">
+
   <!-- HEADER -->
   <div class="header">
-    <div>
-      <div class="header-eyebrow">VAULTED BETS — AD INTELLIGENCE SYSTEM</div>
-      <div class="header-title">Creative Generator</div>
+    <div class="header-left">
+      <div class="eyebrow">VAULTED BETS — AD INTELLIGENCE SYSTEM</div>
+      <div class="title">Creative Generator</div>
     </div>
-    <div style="display:flex;align-items:center;gap:10px">
+    <div class="header-right">
       <button class="btn" id="saveBtn" onclick="savePrompts()" style="display:none;font-size:9px;padding:7px 14px;letter-spacing:1px">SAVE PROMPTS</button>
-      <button onclick="openLibrary()" style="background:transparent;border:1px solid #2a2a2a;color:#888;padding:7px 14px;border-radius:4px;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;cursor:pointer">VIEW SAVED</button>
-      <div class="header-meta">META ADS · AUS MARKET</div>
+      <button class="btn-ghost" onclick="openLibrary()">VIEW SAVED</button>
     </div>
   </div>
 
-  <!-- SAVE MODAL -->
-  <div id="saveModal" style="display:none;position:fixed;inset:0;background:#000000cc;z-index:200;align-items:center;justify-content:center">
-    <div style="background:#0a0a0a;border:1px solid #2a2a2a;border-radius:8px;padding:32px;width:380px">
-      <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;color:#f5a623;margin-bottom:8px">SAVE PROMPTS</div>
-      <div style="font-size:13px;color:#ccc;margin-bottom:16px">Name this generation to save all 10 frames.</div>
-      <input id="saveNameInput" type="text" placeholder="e.g. May Campaign — Cold Audience" style="width:100%;background:#060606;border:1px solid #2a2a2a;border-radius:4px;color:#ccc;padding:10px 12px;font-family:'Space Mono',monospace;font-size:11px;margin-bottom:14px;outline:none"/>
-      <div style="display:flex;gap:8px">
-        <button class="btn" onclick="confirmSave()" style="flex:1">SAVE</button>
-        <button onclick="document.getElementById('saveModal').style.display='none'" style="flex:1;background:transparent;border:1px solid #2a2a2a;color:#666;padding:9px;border-radius:4px;font-family:'Space Mono',monospace;font-size:10px;cursor:pointer">CANCEL</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- LIBRARY MODAL -->
-  <div id="libraryModal" style="display:none;position:fixed;inset:0;background:#000000cc;z-index:200;align-items:center;justify-content:center">
-    <div style="background:#0a0a0a;border:1px solid #2a2a2a;border-radius:8px;padding:32px;width:560px;max-height:80vh;overflow-y:auto">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-        <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;color:#f5a623">SAVED GENERATIONS</div>
-        <button onclick="document.getElementById('libraryModal').style.display='none'" style="background:transparent;border:none;color:#555;font-size:18px;cursor:pointer">✕</button>
-      </div>
-      <div id="libraryList"></div>
-    </div>
-  </div>
-
-  <!-- GENERATION VIEWER MODAL -->
-  <div id="viewerModal" style="display:none;position:fixed;inset:0;background:#000000cc;z-index:300;align-items:center;justify-content:center">
-    <div style="background:#0a0a0a;border:1px solid #2a2a2a;border-radius:8px;padding:32px;width:700px;max-height:85vh;overflow-y:auto">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-        <div>
-          <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;color:#f5a623;margin-bottom:4px">GENERATION</div>
-          <div id="viewerTitle" style="font-size:16px;color:#fff;font-weight:600"></div>
-          <div id="viewerDate" style="font-size:11px;color:#444;font-family:'Space Mono',monospace;margin-top:3px"></div>
-        </div>
-        <button onclick="document.getElementById('viewerModal').style.display='none'" style="background:transparent;border:none;color:#555;font-size:18px;cursor:pointer">✕</button>
-      </div>
-      <div id="viewerContent"></div>
-    </div>
+  <!-- NAV TABS -->
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="switchTab('intelligence')">INTELLIGENCE WORKFLOW</div>
+    <div class="nav-tab" onclick="switchTab('quickgen')">QUICK GENERATOR</div>
+    <div class="nav-tab" onclick="switchTab('branding')">BRANDING HUB</div>
   </div>
 
   <!-- BODY -->
   <div class="body">
 
-    <!-- LEFT -->
-    <div class="left">
-      <div class="workflow-label">WORKFLOW</div>
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- TAB 1: INTELLIGENCE WORKFLOW                          -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="tab-panel active" id="tab-intelligence">
+      <div class="left">
+        <div class="section-label">WORKFLOW</div>
 
-      <!-- Step 1 -->
-      <div class="step-card active" id="card-brand" onclick="setActive('brand')">
-        <div class="step-header">
-          <div class="step-left">
-            <span class="step-icon">◈</span>
-            <div>
-              <div class="step-label">01 — Brand DNA</div>
-              <div class="step-desc">Fetch &amp; analyse vaultedbets.com</div>
-            </div>
+        <div class="step-card active" id="card-brand" onclick="setActive('brand')">
+          <div class="step-header">
+            <div class="step-left"><span class="step-icon">◈</span><div><div class="step-label">01 — Brand DNA</div><div class="step-desc">Fetch & analyse vaultedbets.com</div></div></div>
+            <span class="badge badge-idle" id="badge-brand">READY</span>
           </div>
-          <span class="badge badge-idle" id="badge-brand">READY</span>
+          <div class="step-body" id="body-brand">
+            <p class="step-intro">Claude searches vaultedbets.com and extracts brand positioning, visual identity, tone of voice, and key differentiators.</p>
+            <div class="target-box"><div class="target-label">TARGET</div><div class="target-value">vaultedbets.com</div></div>
+            <button class="btn" id="btn-brand" onclick="runBrand()">FETCH & ANALYSE</button>
+          </div>
         </div>
-        <div class="step-body" id="body-brand">
-          <p class="step-intro">Claude will search vaultedbets.com and extract brand positioning, visual identity, tone of voice, and key differentiators.</p>
-          <div class="target-box">
-            <div class="target-label">TARGET</div>
-            <div class="target-value">vaultedbets.com</div>
+
+        <div class="step-card" id="card-voc" onclick="setActive('voc')">
+          <div class="step-header">
+            <div class="step-left"><span class="step-icon">◉</span><div><div class="step-label">02 — Voice of Member</div><div class="step-desc">Paste testimonials & reviews</div></div></div>
+            <span class="badge badge-idle" id="badge-voc">READY</span>
           </div>
-          <button class="btn" id="btn-brand" onclick="runBrand()">FETCH &amp; ANALYSE</button>
+          <div class="step-body" id="body-voc" style="display:none">
+            <p class="step-intro">Paste member testimonials, DMs, or reviews. Claude extracts emotional triggers, exact phrases, objections, and winning hooks.</p>
+            <textarea class="voc-input" id="vocText" placeholder="Paste member reviews / DMs / testimonials here..."></textarea>
+            <button class="btn" id="btn-voc" onclick="runVoC()">ANALYSE REVIEWS</button>
+          </div>
+        </div>
+
+        <div class="step-card" id="card-competitors" onclick="setActive('competitors')">
+          <div class="step-header">
+            <div class="step-left"><span class="step-icon">◎</span><div><div class="step-label">03 — Competitor Intel</div><div class="step-desc">Scrape ProPicksAU & Daft Previews</div></div></div>
+            <span class="badge badge-idle" id="badge-competitors">READY</span>
+          </div>
+          <div class="step-body" id="body-competitors" style="display:none">
+            <p class="step-intro">Claude scrapes ProPicksAU, Daft Previews, and VaultedX to identify gaps Vaulted Bets can own.</p>
+            <div class="target-box" style="margin-bottom:6px"><div class="target-value">propicksau.com</div></div>
+            <div class="target-box" style="margin-bottom:6px"><div class="target-value">daftpreviews.com</div></div>
+            <div class="target-box" style="margin-bottom:12px"><div class="target-value">vaultedx.com.au</div></div>
+            <button class="btn" id="btn-competitors" onclick="runCompetitors()">SCRAPE COMPETITORS</button>
+          </div>
+        </div>
+
+        <div class="step-card" id="card-strategy" onclick="setActive('strategy')">
+          <div class="step-header">
+            <div class="step-left"><span class="step-icon">◐</span><div><div class="step-label">04 — Frame Strategy</div><div class="step-desc">Build conversion-first creative map</div></div></div>
+            <span class="badge badge-idle" id="badge-strategy">READY</span>
+          </div>
+          <div class="step-body" id="body-strategy" style="display:none">
+            <p class="step-intro">Synthesises all intelligence into a 10-frame creative map with objectives, headlines, visual directions, and full image prompts.</p>
+            <div class="warn-box" id="stratWarn"><div class="warn-text">Complete steps 1–3 first.</div></div>
+            <button class="btn" id="btn-strategy" onclick="runStrategy()" disabled>GENERATE STRATEGY + PROMPTS</button>
+          </div>
+        </div>
+
+        <div class="step-card" id="card-output" onclick="setActive('output')">
+          <div class="step-header">
+            <div class="step-left"><span class="step-icon">◑</span><div><div class="step-label">05 — Prompts & Copy</div><div class="step-desc">Generate full ad creative set</div></div></div>
+            <span class="badge badge-idle" id="badge-output">READY</span>
+          </div>
+          <div class="step-body" id="body-output" style="display:none">
+            <p class="step-intro">Your complete 10-frame ad creative set with headlines, copy, visual directions, and copy-ready image prompts.</p>
+            <p style="font-family:'Space Mono',monospace;font-size:10px;color:#333">Run Step 4 to generate outputs.</p>
+          </div>
         </div>
       </div>
 
-      <!-- Step 2 -->
-      <div class="step-card" id="card-voc" onclick="setActive('voc')">
-        <div class="step-header">
-          <div class="step-left">
-            <span class="step-icon">◉</span>
-            <div>
-              <div class="step-label">02 — Voice of Member</div>
-              <div class="step-desc">Paste testimonials &amp; reviews</div>
+      <div class="right">
+        <div class="panel active" id="panel-brand"><div class="panel-title">BRAND DNA</div><div class="empty" id="empty-brand">Run Brand DNA analysis to see results here.</div><div id="result-brand" style="display:none"></div></div>
+        <div class="panel" id="panel-voc"><div class="panel-title">VOICE OF MEMBER</div><div class="empty" id="empty-voc">Paste member reviews and run VoC analysis.</div><div id="result-voc" style="display:none"></div></div>
+        <div class="panel" id="panel-competitors"><div class="panel-title">COMPETITOR INTEL</div><div class="empty" id="empty-competitors">Run competitor scraping to see the gap map.</div><div id="result-competitors" style="display:none"></div></div>
+        <div class="panel" id="panel-strategy"><div class="panel-title">FRAME STRATEGY</div><div class="empty" id="empty-strategy">Complete steps 1–3 then run Step 4.</div><div id="result-strategy" style="display:none"></div></div>
+        <div class="panel" id="panel-output"><div class="panel-title">AD CREATIVE SET — 10 FRAMES</div><div class="empty" id="empty-output">Complete steps 1–3 then run Step 4.</div><div id="result-output" style="display:none"></div></div>
+        <div class="log-box" id="logBox" style="display:none"><div class="log-header">ACTIVITY LOG</div><div class="log-body" id="logBody"></div></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- TAB 2: QUICK GENERATOR                                -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="tab-panel" id="tab-quickgen" style="display:none">
+      <div class="left">
+        <div class="section-label">QUICK GENERATOR</div>
+        <p style="font-size:12px;color:#666;line-height:1.7;margin-bottom:20px">Upload a reference image, choose your format and type, and generate 5 tailored prompts in seconds. Always references the masked man and Vaulted Bets visual identity.</p>
+
+        <!-- Reference Image -->
+        <div class="qg-section">
+          <div class="qg-label">REFERENCE IMAGE</div>
+          <div id="qgRefImageBox" style="display:none" class="ref-image-box">
+            <img id="qgRefPreview" src="" alt="Reference"/>
+            <div class="ref-image-overlay" onclick="document.getElementById('qgRefInput').click()">
+              <span style="font-family:'Space Mono',monospace;font-size:9px;color:#fff;letter-spacing:2px">CHANGE</span>
             </div>
           </div>
-          <span class="badge badge-idle" id="badge-voc">READY</span>
+          <div class="upload-zone" id="qgUploadZone" onclick="document.getElementById('qgRefInput').click()">
+            <input type="file" id="qgRefInput" accept="image/*" onchange="handleQGRefImage(event)"/>
+            <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:2px;margin-bottom:6px">UPLOAD REFERENCE IMAGE</div>
+            <div style="font-size:12px;color:#333">or select from Branding Hub below</div>
+          </div>
+
+          <!-- Branding Hub quick-select -->
+          <div id="qgBrandAssets" style="margin-top:8px"></div>
         </div>
-        <div class="step-body" id="body-voc" style="display:none">
-          <p class="step-intro">Paste member testimonials, DMs, or reviews. Claude extracts emotional triggers, exact phrases, objections, and winning hooks.</p>
-          <textarea class="voc-input" id="vocText" placeholder="Paste member reviews / DMs / testimonials here..."></textarea>
-          <button class="btn" id="btn-voc" onclick="runVoC()">ANALYSE REVIEWS</button>
+
+        <!-- Format -->
+        <div class="qg-section">
+          <div class="qg-label">FORMAT</div>
+          <div class="toggle-group">
+            <button class="toggle-btn selected" id="fmt-11" onclick="selectFormat('1:1')">1:1 SQUARE</button>
+            <button class="toggle-btn" id="fmt-916" onclick="selectFormat('9:16')">9:16 VERTICAL</button>
+          </div>
         </div>
+
+        <!-- Type -->
+        <div class="qg-section">
+          <div class="qg-label">CREATIVE TYPE</div>
+          <div class="toggle-group">
+            <button class="toggle-btn selected" id="type-static" onclick="selectType('static')">STATIC IMAGE</button>
+            <button class="toggle-btn" id="type-video" onclick="selectType('video')">VIDEO / REEL</button>
+          </div>
+        </div>
+
+        <!-- Additional context -->
+        <div class="qg-section">
+          <div class="qg-label">ADDITIONAL CONTEXT (OPTIONAL)</div>
+          <textarea class="voc-input" id="qgContext" placeholder="e.g. Focus on the leaderboard angle, use urgency hook, target cold audience..." style="min-height:80px"></textarea>
+        </div>
+
+        <button class="btn" id="btn-qg" onclick="runQuickGen()" style="width:100%">GENERATE 5 PROMPTS</button>
       </div>
 
-      <!-- Step 3 -->
-      <div class="step-card" id="card-competitors" onclick="setActive('competitors')">
-        <div class="step-header">
-          <div class="step-left">
-            <span class="step-icon">◎</span>
-            <div>
-              <div class="step-label">03 — Competitor Intel</div>
-              <div class="step-desc">Scrape ProPicksAU &amp; Daft Previews</div>
-            </div>
-          </div>
-          <span class="badge badge-idle" id="badge-competitors">READY</span>
-        </div>
-        <div class="step-body" id="body-competitors" style="display:none">
-          <p class="step-intro">Claude scrapes ProPicksAU, Daft Previews, and VaultedX to identify the gaps Vaulted Bets can own.</p>
-          <div class="target-box" style="margin-bottom:6px"><div class="target-value">https://propicksau.com</div></div>
-          <div class="target-box" style="margin-bottom:6px"><div class="target-value">https://daftpreviews.com</div></div>
-          <div class="target-box" style="margin-bottom:12px"><div class="target-value">https://vaultedx.com.au</div></div>
-          <button class="btn" id="btn-competitors" onclick="runCompetitors()">SCRAPE COMPETITORS</button>
-        </div>
+      <div class="right">
+        <div class="panel-title">GENERATED PROMPTS</div>
+        <div class="empty" id="empty-qg">Configure your settings and hit Generate to create 5 tailored prompts.</div>
+        <div id="result-qg" style="display:none"></div>
       </div>
+    </div>
 
-      <!-- Step 4 -->
-      <div class="step-card" id="card-strategy" onclick="setActive('strategy')">
-        <div class="step-header">
-          <div class="step-left">
-            <span class="step-icon">◐</span>
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- TAB 3: BRANDING HUB                                   -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="tab-panel" id="tab-branding" style="display:none;flex-direction:column">
+      <div style="flex:1;padding:24px;overflow-y:auto">
+        <div style="max-width:800px;margin:0 auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
             <div>
-              <div class="step-label">04 — Frame Strategy</div>
-              <div class="step-desc">Build conversion-first creative map</div>
+              <div class="panel-title" style="margin-bottom:4px">BRANDING HUB</div>
+              <p style="font-size:12px;color:#555">Upload and store your brand assets. Available to reference in all prompt generation.</p>
+            </div>
+            <button class="btn" onclick="document.getElementById('brandUploadInput').click()">+ UPLOAD ASSET</button>
+            <input type="file" id="brandUploadInput" accept="image/*" style="display:none" onchange="handleBrandUpload(event)"/>
+          </div>
+
+          <!-- Upload form -->
+          <div id="brandUploadForm" style="display:none;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:6px;padding:20px;margin-bottom:20px">
+            <div class="section-label" style="margin-bottom:14px">NEW ASSET</div>
+            <img id="brandUploadPreview" style="width:100%;max-height:200px;object-fit:contain;border-radius:4px;margin-bottom:14px;border:1px solid #1e1e1e"/>
+            <div style="margin-bottom:10px">
+              <div class="qg-label">ASSET NAME</div>
+              <input type="text" id="brandAssetName" placeholder="e.g. Masked Man Garage Hero" style="width:100%;background:#060606;border:1px solid #2a2a2a;border-radius:4px;color:#ccc;padding:9px 12px;font-family:'Space Mono',monospace;font-size:11px;outline:none"/>
+            </div>
+            <div style="margin-bottom:14px">
+              <div class="qg-label">ASSET TYPE</div>
+              <div class="toggle-group">
+                <button class="toggle-btn selected" id="assettype-reference" onclick="selectAssetType('reference')">REFERENCE IMAGE</button>
+                <button class="toggle-btn" id="assettype-logo" onclick="selectAssetType('logo')">LOGO</button>
+                <button class="toggle-btn" id="assettype-other" onclick="selectAssetType('other')">OTHER</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn" onclick="confirmBrandUpload()">SAVE ASSET</button>
+              <button class="btn-ghost" onclick="cancelBrandUpload()">CANCEL</button>
             </div>
           </div>
-          <span class="badge badge-idle" id="badge-strategy">READY</span>
-        </div>
-        <div class="step-body" id="body-strategy" style="display:none">
-          <p class="step-intro">Synthesises all intelligence into a 10-frame creative map with objectives, headlines, visual directions, and full image prompts.</p>
-          <div class="warn-box" id="stratWarn"><div class="warn-text">Complete steps 1–3 first.</div></div>
-          <button class="btn" id="btn-strategy" onclick="runStrategy()" disabled>GENERATE STRATEGY + PROMPTS</button>
-        </div>
-      </div>
 
-      <!-- Step 5 -->
-      <div class="step-card" id="card-output" onclick="setActive('output')">
-        <div class="step-header">
-          <div class="step-left">
-            <span class="step-icon">◑</span>
-            <div>
-              <div class="step-label">05 — Prompts &amp; Copy</div>
-              <div class="step-desc">Generate full ad creative set</div>
-            </div>
-          </div>
-          <span class="badge badge-idle" id="badge-output">READY</span>
-        </div>
-        <div class="step-body" id="body-output" style="display:none">
-          <p class="step-intro">Your complete 10-frame ad creative set — headlines, copy, visual directions, and copy-ready image prompts for Nano Banana Pro or GPT Image 2.</p>
-          <p style="font-family:'Space Mono',monospace;font-size:10px;color:#333">Run Step 4 to generate outputs.</p>
+          <!-- Assets grid -->
+          <div id="brandAssetsList"><div class="empty">No brand assets yet. Upload your first asset above.</div></div>
         </div>
       </div>
     </div>
 
-    <!-- RIGHT -->
-    <div class="right">
+  </div><!-- end .body -->
+</div><!-- end #app -->
 
-      <!-- Brand panel -->
-      <div class="panel active" id="panel-brand">
-        <div class="panel-title">BRAND DNA</div>
-        <div class="empty" id="empty-brand">Run Brand DNA analysis to see results here.</div>
-        <div id="result-brand" style="display:none"></div>
-      </div>
+<!-- MODALS -->
 
-      <!-- VoC panel -->
-      <div class="panel" id="panel-voc">
-        <div class="panel-title">VOICE OF MEMBER</div>
-        <div class="empty" id="empty-voc">Paste member reviews and run VoC analysis.</div>
-        <div id="result-voc" style="display:none"></div>
-      </div>
-
-      <!-- Competitors panel -->
-      <div class="panel" id="panel-competitors">
-        <div class="panel-title">COMPETITOR INTEL</div>
-        <div class="empty" id="empty-competitors">Run competitor scraping to see the gap map.</div>
-        <div id="result-competitors" style="display:none"></div>
-      </div>
-
-      <!-- Strategy panel -->
-      <div class="panel" id="panel-strategy">
-        <div class="panel-title">FRAME STRATEGY</div>
-        <div class="empty" id="empty-strategy">Complete steps 1–3 then run Step 4 to generate your full creative set.</div>
-        <div id="result-strategy" style="display:none"></div>
-      </div>
-
-      <!-- Output panel -->
-      <div class="panel" id="panel-output">
-        <div class="panel-title">AD CREATIVE SET — 10 FRAMES</div>
-        <div class="empty" id="empty-output">Complete steps 1–3 then run Step 4 to generate your full creative set.</div>
-        <div id="result-output" style="display:none"></div>
-      </div>
-
-      <!-- Log -->
-      <div class="log-box" id="logBox" style="display:none">
-        <div class="log-header">ACTIVITY LOG</div>
-        <div class="log-body" id="logBody"></div>
-      </div>
+<!-- Save Modal -->
+<div class="modal" id="saveModal">
+  <div class="modal-box" style="width:380px">
+    <div class="modal-header"><div class="modal-title">SAVE PROMPTS</div><button class="modal-close" onclick="closeModal('saveModal')">✕</button></div>
+    <p style="font-size:13px;color:#666;margin-bottom:16px">Name this generation to save all 10 frames to your library.</p>
+    <input type="text" id="saveNameInput" placeholder="e.g. May Campaign — Cold Audience" style="width:100%;background:#060606;border:1px solid #2a2a2a;border-radius:4px;color:#ccc;padding:10px 12px;font-family:'Space Mono',monospace;font-size:11px;margin-bottom:14px;outline:none"/>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="confirmSave()" style="flex:1">SAVE</button>
+      <button class="btn-ghost" onclick="closeModal('saveModal')" style="flex:1">CANCEL</button>
     </div>
   </div>
 </div>
 
-<script>
-let API_KEY = localStorage.getItem('vb_api_key') || '';
+<!-- Library Modal -->
+<div class="modal" id="libraryModal">
+  <div class="modal-box wide">
+    <div class="modal-header"><div class="modal-title">SAVED GENERATIONS</div><button class="modal-close" onclick="closeModal('libraryModal')">✕</button></div>
+    <div id="libraryList"></div>
+  </div>
+</div>
 
+<!-- Viewer Modal -->
+<div class="modal" id="viewerModal">
+  <div class="modal-box wide" style="width:760px">
+    <div class="modal-header">
+      <div><div class="modal-title" style="margin-bottom:4px">GENERATION</div><div id="viewerTitle" style="font-size:16px;color:#fff;font-weight:600"></div><div id="viewerDate" style="font-family:'Space Mono',monospace;font-size:9px;color:#444;margin-top:3px"></div></div>
+      <button class="modal-close" onclick="closeModal('viewerModal')">✕</button>
+    </div>
+    <div id="viewerContent"></div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────
+let API_KEY = localStorage.getItem('vb_api_key') || '';
 const SUPABASE_URL = 'https://hnfygurhouhcggbagrrb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuZnlndXJob3VoY2dnYmFncnJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNzk1MDUsImV4cCI6MjA5Mzc1NTUwNX0.kuiEi6R3B1kGD3QPscGZVojs4pVO0OEAcnjD5Argvew';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 let results = { brand: null, voc: null, competitors: null, strategy: null };
 let activeStep = 'brand';
+let qgFormat = '1:1';
+let qgType = 'static';
+let qgRefImageBase64 = null;
+let brandAssetType = 'reference';
+let pendingBrandFile = null;
+let brandAssets = [];
 
-const BRAND_SYSTEM = `You are a world-class brand strategist specialising in Australian sports betting platforms. Analyse and extract a Brand DNA document. Return ONLY valid JSON, no markdown, no backticks, no explanation: {"positioning":"2-3 sentence statement","targetAudience":"who they speak to","toneOfVoice":["adj1","adj2","adj3","adj4"],"visualIdentity":{"colors":["primary","secondary","accent"],"typography":"type feel","photoDirection":"visual style"},"keyMessages":["msg1","msg2","msg3"],"vocabulary":{"use":["w1","w2","w3","w4","w5"],"avoid":["w1","w2","w3"]},"differentiators":["d1","d2","d3"],"competitiveSpace":"market position"}`;
+// ── SYSTEM PROMPTS ──────────────────────────────────────────────
+const BRAND_SYSTEM = `Brand strategist for Australian sports betting. Extract Brand DNA. Return ONLY valid JSON no markdown: {"positioning":"str","targetAudience":"str","toneOfVoice":["a1","a2","a3","a4"],"visualIdentity":{"colors":["c1","c2","c3"],"typography":"str","photoDirection":"str"},"keyMessages":["m1","m2","m3"],"vocabulary":{"use":["w1","w2","w3","w4","w5"],"avoid":["w1","w2","w3"]},"differentiators":["d1","d2","d3"],"competitiveSpace":"str"}`;
 
-const VOC_SYSTEM = `You are a conversion copywriter specialising in Australian sports betting. Analyse member reviews and extract Voice of Customer intelligence. Return ONLY valid JSON, no markdown, no backticks, no explanation: {"emotionalTriggers":["t1","t2","t3","t4"],"exactPhrases":["p1","p2","p3","p4","p5"],"objections":["o1","o2","o3"],"purchaseDrivers":["d1","d2","d3","d4"],"unexpectedInsights":["i1","i2"],"winningHooks":["h1","h2","h3","h4","h5"]}`;
+const VOC_SYSTEM = `Conversion copywriter for Australian sports betting. Analyse reviews. Return ONLY valid JSON no markdown: {"emotionalTriggers":["t1","t2","t3","t4"],"exactPhrases":["p1","p2","p3","p4","p5"],"objections":["o1","o2","o3"],"purchaseDrivers":["d1","d2","d3","d4"],"unexpectedInsights":["i1","i2"],"winningHooks":["h1","h2","h3","h4","h5"]}`;
 
-const COMPETITOR_SYSTEM = `You are a competitive intelligence analyst for Australian sports betting marketing. Analyse competitors and identify gaps. Return ONLY valid JSON, no markdown, no backticks, no explanation: {"competitorSummaries":[{"name":"name","heroAngle":"main hook","strengths":["s1","s2"],"weaknesses":["w1","w2"],"adPatterns":"patterns"}],"categoryGaps":["g1","g2","g3"],"differentiationAngles":["a1","a2","a3"],"creativeWhitespace":"what no competitor does that Vaulted Bets could own"}`;
+const COMPETITOR_SYSTEM = `Competitive intelligence analyst for Australian sports betting. Return ONLY valid JSON no markdown: {"competitorSummaries":[{"name":"str","heroAngle":"str","strengths":["s1","s2"],"weaknesses":["w1","w2"],"adPatterns":"str"}],"categoryGaps":["g1","g2","g3"],"differentiationAngles":["a1","a2","a3"],"creativeWhitespace":"str"}`;
 
-const STRATEGY_SYSTEM = `Meta ads creative strategist for Australian sports betting. Build a 10-frame strategy.
+const STRATEGY_SYSTEM = `Meta ads creative strategist for Australian sports betting. Build 10-frame strategy.
 Brand: masked man (LV monogram outfit, orange spiral vortex mask), private garage, orange Lambo Urus Performante, matte black Aventador SVJ.
 Platform: VIP membership, strategy app, bet tracker, leaderboard, weekly prizes. NOT tips.
 Market: Aus male bettors 25-45. Frame flow: desire->proof->diff->objection->urgency->CTA. Mix static/reel.
 All imagePrompts must include: masked man, LV outfit, orange vortex mask, garage, orange Urus Performante, black Aventador SVJ.
-Return ONLY JSON, no markdown: {"campaignTheme":"str","audienceNotes":"str","frames":[{"frameNumber":1,"objective":"str","adType":"static","headline":"str","subtext":"str","visualDirection":"str","imagePrompt":"str","ctaText":"str","vocHook":"str","whyItWorks":"str"}]}`;
+Return ONLY JSON no markdown: {"campaignTheme":"str","audienceNotes":"str","frames":[{"frameNumber":1,"objective":"str","adType":"static","headline":"str","subtext":"str","visualDirection":"str","imagePrompt":"str","ctaText":"str","vocHook":"str","whyItWorks":"str"}]}`;
 
-function startApp() {
-  const key = document.getElementById('apiKeyInput').value.trim();
-  if (!key.startsWith('sk-ant-')) { alert('Please enter a valid Anthropic API key (starts with sk-ant-)'); return; }
-  API_KEY = key;
-  localStorage.setItem('vb_api_key', key);
-  document.getElementById('apiScreen').style.display = 'none';
-  document.getElementById('app').classList.add('visible');
+const QUICKGEN_SYSTEM = `You are an expert Meta ad creative director for Vaulted Bets, an Australian VIP sports betting membership.
+Visual identity: masked man in Louis Vuitton monogram outfit, glowing orange spiral vortex mask, private dark garage, orange Lamborghini Urus Performante 2025, matte black Lamborghini Aventador SVJ. This is the ONLY visual style used.
+Platform USPs: strategy generator app, bet tracker, live leaderboard, weekly prize competitions, gamified mechanics. VIP membership NOT tips service.
+Target: Australian male sports bettors 25-45 who want a real edge.
+
+Generate 5 distinct ad creative prompts. Each must have a different angle — mix of: different shot compositions of the masked man, different ad objectives (desire/proof/urgency/objection/CTA), different VoC hooks.
+All prompts must reference the masked man, LV outfit, orange spiral vortex mask, garage setting, and the two Lamborghinis.
+
+Return ONLY valid JSON no markdown: {"prompts":[{"number":1,"angle":"str — short creative angle name","objective":"str — ad objective","hook":"str — VoC hook being used","headline":"str — punchy under 8 words","subtext":"str — 1-2 sentences","imagePrompt":"str — detailed Nano Banana Pro / GPT Image 2 compatible prompt","videoDirection":"str — if video: describe motion, pacing, audio mood (only if video type)","whyItWorks":"str"}]}`;
+
+// ── API ──────────────────────────────────────────────────────────
+const HEADERS = { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' };
+
+function getHeaders() {
+  return { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' };
 }
 
-document.getElementById('apiKeyInput').addEventListener('keydown', e => { if (e.key === 'Enter') startApp(); });
-if (API_KEY) { document.getElementById('apiScreen').style.display = 'none'; document.getElementById('app').classList.add('visible'); }
-
-async function callClaude(system, user) {
+async function callClaude(system, user, imageBase64) {
+  let content = [{ type: 'text', text: user }];
+  if (imageBase64) {
+    content = [
+      { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
+      { type: 'text', text: user }
+    ];
+  }
   const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, system, messages: [{ role: 'user', content: user }] }),
+    method: 'POST', headers: getHeaders(),
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, system, messages: [{ role: 'user', content }] }),
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || 'HTTP ' + res.status); }
   const data = await res.json();
@@ -497,8 +522,7 @@ async function callClaude(system, user) {
 
 async function callClaudeSearch(system, user) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    method: 'POST', headers: getHeaders(),
     body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, tools: [{ type: 'web_search_20250305', name: 'web_search' }], system, messages: [{ role: 'user', content: user }] }),
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || 'HTTP ' + res.status); }
@@ -508,47 +532,63 @@ async function callClaudeSearch(system, user) {
 
 function parseJSON(raw) {
   if (!raw) return null;
-  // Try direct parse after cleaning
   try { return JSON.parse(raw.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim()); } catch {}
-  // Try extracting largest JSON object
   const matches = raw.match(/\{[\s\S]*\}/g);
-  if (matches) {
-    const sorted = matches.sort((a,b) => b.length - a.length);
-    for (const m of sorted) { try { return JSON.parse(m); } catch {} }
-  }
-  // Try fixing common issues: trailing commas, single quotes
-  try {
-    const cleaned = raw.replace(/```json\n?/g,'').replace(/```\n?/g,'')
-      .replace(/,\s*}/g,'}').replace(/,\s*]/g,']').trim();
-    const m = cleaned.match(/\{[\s\S]*\}/);
-    if (m) return JSON.parse(m[0]);
-  } catch {}
+  if (matches) { for (const m of [...matches].sort((a,b)=>b.length-a.length)) { try { return JSON.parse(m); } catch {} } }
   return null;
 }
 
+// ── INIT ─────────────────────────────────────────────────────────
+function startApp() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key.startsWith('sk-ant-')) { alert('Please enter a valid Anthropic API key (starts with sk-ant-)'); return; }
+  API_KEY = key;
+  localStorage.setItem('vb_api_key', key);
+  document.getElementById('apiScreen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  loadBrandAssets();
+}
+document.getElementById('apiKeyInput').addEventListener('keydown', e => { if (e.key === 'Enter') startApp(); });
+if (API_KEY) {
+  document.getElementById('apiScreen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  loadBrandAssets();
+}
+
+// ── TAB SWITCHING ────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.nav-tab').forEach((t,i) => t.classList.toggle('active', ['intelligence','quickgen','branding'][i] === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => { p.style.display = 'none'; p.classList.remove('active'); });
+  const el = document.getElementById('tab-' + tab);
+  el.style.display = tab === 'branding' ? 'flex' : 'flex';
+  el.classList.add('active');
+  if (tab === 'branding') loadBrandAssets();
+  if (tab === 'quickgen') loadQGBrandAssets();
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function log(msg) {
-  const box = document.getElementById('logBox');
-  const body = document.getElementById('logBody');
+  const box = document.getElementById('logBox'), body = document.getElementById('logBody');
   box.style.display = 'block';
   const line = document.createElement('div');
   line.className = 'log-line recent';
   line.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
-  body.appendChild(line);
-  body.scrollTop = body.scrollHeight;
+  body.appendChild(line); body.scrollTop = body.scrollHeight;
   setTimeout(() => line.classList.remove('recent'), 3000);
 }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
 
+// ── INTELLIGENCE WORKFLOW ────────────────────────────────────────
 function setStatus(step, status) {
   const badge = document.getElementById('badge-' + step);
   const card = document.getElementById('card-' + step);
-  const labels = { idle: ['badge-idle','READY'], running: ['badge-running','ANALYSING...'], done: ['badge-done','COMPLETE'], error: ['badge-error','ERROR'] };
-  badge.className = 'badge ' + labels[status][0];
-  badge.textContent = labels[status][1];
-  card.classList.remove('done','error-state');
-  if (status === 'done') card.classList.add('done');
-  if (status === 'error') card.classList.add('error-state');
+  if (!badge) return;
+  const labels = { idle:['badge-idle','READY'], running:['badge-running','ANALYSING...'], done:['badge-done','COMPLETE'], error:['badge-error','ERROR'] };
+  badge.className = 'badge ' + labels[status][0]; badge.textContent = labels[status][1];
+  if (card) { card.classList.remove('done','error-state'); if (status==='done') card.classList.add('done'); if (status==='error') card.classList.add('error-state'); }
 }
-
 function setActive(step) {
   activeStep = step;
   document.querySelectorAll('.step-card').forEach(c => c.classList.remove('active'));
@@ -558,253 +598,58 @@ function setActive(step) {
   document.getElementById('body-' + step).style.display = 'block';
   document.getElementById('panel-' + step).classList.add('active');
 }
-
-function setBtnLoading(id, loading) {
+function setBtnLoading(id, loading, resetLabel) {
   const btn = document.getElementById('btn-' + id);
+  if (!btn) return;
   if (loading) { btn.classList.add('running'); btn.disabled = true; btn.textContent = 'RUNNING...'; }
-  else { btn.classList.remove('running'); btn.disabled = false; btn.textContent = btn.dataset.label || btn.textContent; }
+  else { btn.classList.remove('running'); btn.disabled = false; if (resetLabel) btn.textContent = resetLabel; }
 }
-
 function checkStrategyReady() {
   const ready = results.brand && results.voc && results.competitors;
   document.getElementById('btn-strategy').disabled = !ready;
   document.getElementById('stratWarn').style.display = ready ? 'none' : 'block';
 }
-
-// ── RENDER FUNCTIONS ────────────────────────────────────────────
-
-function renderTags(title, tags, colorHex, small) {
-  if (!tags || !tags.length) return '';
-  const items = tags.map(t => `<span class="tag" style="color:${colorHex};border-color:${colorHex}44;font-size:${small?'9px':'10px'};padding:${small?'2px 7px':'3px 10px'}">${esc(t)}</span>`).join('');
-  return `<div class="tags-section"><div class="tags-label">${title}</div><div class="tags-row">${items}</div></div>`;
-}
-
-function renderJSON(data, title) {
-  const id = 'json-' + Math.random().toString(36).slice(2);
-  return `<div class="json-viewer">
-    <div class="json-toggle" onclick="toggleJSON('${id}')">
-      <span class="json-toggle-label">${title}</span>
-      <span class="json-toggle-arrow" id="arr-${id}">▶</span>
-    </div>
-    <div class="json-content" id="${id}"><pre>${esc(JSON.stringify(data, null, 2))}</pre></div>
-  </div>`;
-}
-
-function toggleJSON(id) {
-  const el = document.getElementById(id);
-  const arr = document.getElementById('arr-' + id);
-  el.classList.toggle('open');
-  arr.textContent = el.classList.contains('open') ? '▼' : '▶';
-}
-
-function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {}).catch(() => {});
-}
-
-function renderBrand(data) {
-  return `
-    <div class="info-grid">
-      <div class="info-block"><div class="info-label">POSITIONING</div><div class="info-value">${esc(data.positioning)}</div></div>
-      <div class="info-block"><div class="info-label">TARGET AUDIENCE</div><div class="info-value">${esc(data.targetAudience)}</div></div>
-      <div class="info-block"><div class="info-label">COMPETITIVE SPACE</div><div class="info-value">${esc(data.competitiveSpace)}</div></div>
-      <div class="info-block"><div class="info-label">TONE OF VOICE</div><div class="info-value">${esc((data.toneOfVoice||[]).join(' · '))}</div></div>
-    </div>
-    ${renderTags('VOCABULARY — USE', data.vocabulary?.use, '#00e5a0')}
-    ${renderTags('VOCABULARY — AVOID', data.vocabulary?.avoid, '#ff4444')}
-    ${renderTags('KEY DIFFERENTIATORS', data.differentiators, '#f5a623')}
-    ${renderJSON(data, 'FULL BRAND DNA JSON')}`;
-}
-
-function renderVoC(data) {
-  const hooks = (data.winningHooks || []).map((h, i) => `<div class="hook-item"><span class="hook-num">0${i+1}</span><span class="hook-text">"${esc(h)}"</span></div>`).join('');
-  return `
-    ${renderTags('EMOTIONAL TRIGGERS', data.emotionalTriggers, '#f5a623')}
-    ${renderTags('EXACT CUSTOMER PHRASES', data.exactPhrases, '#00e5a0')}
-    ${renderTags('OBJECTIONS TO ADDRESS', data.objections, '#ff6644')}
-    ${renderTags('PURCHASE DRIVERS', data.purchaseDrivers, '#a78bfa')}
-    <div style="margin-top:14px">
-      <div class="tags-label">WINNING HOOKS</div>
-      ${hooks}
-    </div>
-    ${renderJSON(data, 'FULL VOC JSON')}`;
-}
-
-function renderCompetitors(data) {
-  const comps = (data.competitorSummaries || []).map(c => `
-    <div class="comp-card">
-      <div class="comp-name">${esc(c.name)}</div>
-      <div class="info-label">HERO ANGLE</div>
-      <div class="info-value" style="margin-bottom:10px">${esc(c.heroAngle)}</div>
-      <div class="comp-grid">
-        ${renderTags('STRENGTHS', c.strengths, '#00e5a0', true)}
-        ${renderTags('WEAKNESSES', c.weaknesses, '#ff4444', true)}
-      </div>
-      <div class="info-label" style="margin-top:8px">AD PATTERNS</div>
-      <div class="info-value">${esc(c.adPatterns)}</div>
-    </div>`).join('');
-  return `
-    ${comps}
-    <div class="whitespace-box">
-      <div class="whitespace-label">CREATIVE WHITESPACE</div>
-      <div class="whitespace-text">${esc(data.creativeWhitespace)}</div>
-    </div>
-    ${renderTags('DIFFERENTIATION ANGLES', data.differentiationAngles, '#f5a623')}
-    ${renderJSON(data, 'FULL COMPETITOR JSON')}`;
-}
-
-function renderStrategy(data) {
-  const frames = (data.frames || []).map(f => {
-    const typeClass = f.adType === 'reel' ? 'reel' : 'static';
-    const promptId = 'prompt-' + f.frameNumber;
-    const promptEscaped = (f.imagePrompt || '').replace(/'/g, "\\'");
-    return `
-      <div class="frame-card">
-        <div class="frame-header" onclick="toggleFrame(${f.frameNumber})">
-          <div class="frame-meta">
-            <span class="frame-type ${typeClass}">${(f.adType||'static').toUpperCase()}</span>
-            <span class="frame-num">FRAME ${f.frameNumber}</span>
-            <span class="frame-headline">"${esc(f.headline)}"</span>
-          </div>
-          <span class="frame-toggle" id="ftog-${f.frameNumber}">▶</span>
-        </div>
-        <div class="frame-body" id="fbody-${f.frameNumber}">
-          <div class="frame-fields">
-            <div class="frame-field"><div class="field-label">OBJECTIVE</div><div class="field-value">${esc(f.objective)}</div></div>
-            <div class="frame-field"><div class="field-label">CTA</div><div class="field-value">${esc(f.ctaText)}</div></div>
-            <div class="frame-field full"><div class="field-label">SUBTEXT</div><div class="field-value">${esc(f.subtext)}</div></div>
-            <div class="frame-field full"><div class="field-label">VOC HOOK</div><div class="field-value">${esc(f.vocHook)}</div></div>
-            <div class="frame-field full"><div class="field-label">VISUAL DIRECTION</div><div class="field-value">${esc(f.visualDirection)}</div></div>
-            <div class="frame-field full"><div class="field-label">WHY IT WORKS</div><div class="field-value">${esc(f.whyItWorks)}</div></div>
-          </div>
-          <div class="prompt-box">
-            <div class="prompt-label">IMAGE PROMPT</div>
-            <div class="prompt-text" id="${promptId}">${esc(f.imagePrompt)}</div>
-            <button class="btn-small" onclick="copyToClipboard('${promptEscaped}')">COPY PROMPT</button>
-          </div>
-        </div>
-      </div>`;
-  }).join('');
-
-  const theme = data.campaignTheme ? `<div class="theme-box"><div class="theme-label">CAMPAIGN THEME</div><div class="theme-text">"${esc(data.campaignTheme)}"</div></div>` : '';
-  const audience = data.audienceNotes ? `<div class="audience-box"><div class="audience-label">META AUDIENCE NOTES</div><div class="audience-text">${esc(data.audienceNotes)}</div></div>` : '';
-  return theme + frames + audience;
-}
-
-function toggleFrame(n) {
-  const body = document.getElementById('fbody-' + n);
-  const tog = document.getElementById('ftog-' + n);
-  const isOpen = body.style.display === 'block';
-  body.style.display = isOpen ? 'none' : 'block';
-  tog.textContent = isOpen ? '▶' : '▼';
-}
-
 function showResult(step, html) {
   document.getElementById('empty-' + step).style.display = 'none';
-  const el = document.getElementById('result-' + step);
-  el.innerHTML = html;
-  el.style.display = 'block';
+  const el = document.getElementById('result-' + step); el.innerHTML = html; el.style.display = 'block';
 }
 
-// ── STEP RUNNERS ────────────────────────────────────────────────
-
 async function runBrand() {
-  setStatus('brand', 'running');
-  setBtnLoading('brand', true);
-  log('Fetching VaultedBets brand content...');
+  setStatus('brand','running'); setBtnLoading('brand',true); log('Fetching VaultedBets brand content...');
   try {
-    const raw = await callClaudeSearch(BRAND_SYSTEM,
-      'Search and analyse VaultedBets sports betting membership at vaultedbets.com. Extract brand DNA. Key context: masked man character (Louis Vuitton monogram outfit, orange spiral vortex mask) in private garage with orange Lamborghini Urus Performante 2025 and matte black Lamborghini Aventador SVJ. VIP sports betting membership with strategy app, bet tracker, live leaderboard, weekly prizes. Australian male sports bettors target market.'
-    );
-    const parsed = parseJSON(raw) || {
-      positioning: "VaultedBets is Australia's premier VIP sports betting membership — built around strategy, data, and gamified competition, not just tips.",
-      targetAudience: "Australian male sports bettors aged 25-45 who want a real edge over the bookies.",
-      toneOfVoice: ["Elite","Confident","Exclusive","Results-driven"],
-      visualIdentity: { colors: ["Deep black/obsidian","Burnt orange/gold","White"], typography: "Bold geometric display type", photoDirection: "High-contrast garage, luxury cars, masked identity" },
-      keyMessages: ["Stop betting blind","Join Australia's sharpest punters","Strategy over luck"],
-      vocabulary: { use: ["vault","edge","strategy","members","elite","ROI"], avoid: ["tips","picks","guaranteed","sure thing"] },
-      differentiators: ["Strategy generator app","Live leaderboard with prizes","Gamified bet tracking"],
-      competitiveSpace: "Premium tier above tips services — closer to a betting analytics platform"
-    };
-    results.brand = parsed;
-    setStatus('brand', 'done');
-    showResult('brand', renderBrand(parsed));
-    log('Brand DNA complete.');
-    checkStrategyReady();
-    setActive('voc');
-  } catch(e) {
-    setStatus('brand', 'error');
-    log('Brand failed: ' + e.message);
-  }
-  setBtnLoading('brand', false);
-  document.getElementById('btn-brand').textContent = 'RE-RUN ANALYSIS';
+    const raw = await callClaudeSearch(BRAND_SYSTEM, 'Search and analyse VaultedBets at vaultedbets.com. Extract brand DNA. Context: masked man (LV monogram outfit, orange spiral vortex mask) in private garage with orange Lamborghini Urus Performante 2025 and matte black Aventador SVJ. VIP sports betting membership with strategy app, bet tracker, leaderboard, weekly prizes. Australian male sports bettors target.');
+    const parsed = parseJSON(raw) || { positioning:"VaultedBets is Australia's premier VIP sports betting membership — strategy, data, and gamified competition, not just tips.", targetAudience:"Australian male sports bettors 25-45 who want a real edge.", toneOfVoice:["Elite","Confident","Exclusive","Results-driven"], visualIdentity:{colors:["Deep black/obsidian","Burnt orange/gold","White"],typography:"Bold geometric",photoDirection:"High-contrast garage, luxury cars, masked identity"}, keyMessages:["Stop betting blind","Strategy over luck","Join the vault"], vocabulary:{use:["vault","edge","strategy","members","elite","ROI"],avoid:["tips","picks","guaranteed","sure thing"]}, differentiators:["Strategy generator app","Live leaderboard with prizes","Gamified bet tracking"], competitiveSpace:"Premium tier above tips services" };
+    results.brand = parsed; setStatus('brand','done'); showResult('brand', renderBrand(parsed)); log('Brand DNA complete.'); checkStrategyReady(); setActive('voc');
+  } catch(e) { setStatus('brand','error'); log('Brand failed: ' + e.message); }
+  setBtnLoading('brand', false, 'RE-RUN ANALYSIS');
 }
 
 async function runVoC() {
   const text = document.getElementById('vocText').value.trim();
   if (!text) { log('Paste reviews first.'); return; }
-  setStatus('voc', 'running');
-  setBtnLoading('voc', true);
-  log('Analysing member voice...');
+  setStatus('voc','running'); setBtnLoading('voc',true); log('Analysing member voice...');
   try {
-    const raw = await callClaude(VOC_SYSTEM, 'Analyse these VaultedBets member reviews and testimonials:\n\n' + text);
+    const raw = await callClaude(VOC_SYSTEM, 'Analyse these VaultedBets member reviews:\n\n' + text);
     const parsed = parseJSON(raw);
-    results.voc = parsed;
-    setStatus('voc', 'done');
-    showResult('voc', renderVoC(parsed));
-    log('VoC complete.');
-    checkStrategyReady();
-    setActive('competitors');
-  } catch(e) {
-    setStatus('voc', 'error');
-    log('VoC failed: ' + e.message);
-  }
-  setBtnLoading('voc', false);
-  document.getElementById('btn-voc').textContent = 'RE-ANALYSE';
+    results.voc = parsed; setStatus('voc','done'); showResult('voc', renderVoC(parsed)); log('VoC complete.'); checkStrategyReady(); setActive('competitors');
+  } catch(e) { setStatus('voc','error'); log('VoC failed: ' + e.message); }
+  setBtnLoading('voc', false, 'RE-ANALYSE');
 }
 
 async function runCompetitors() {
-  setStatus('competitors', 'running');
-  setBtnLoading('competitors', true);
-  log('Scraping competitor intelligence...');
+  setStatus('competitors','running'); setBtnLoading('competitors',true); log('Scraping competitor intelligence...');
   try {
-    const raw = await callClaudeSearch(COMPETITOR_SYSTEM,
-      'Search and analyse: ProPicksAU at propicksau.com, Daft Previews at daftpreviews.com, VaultedX at vaultedx.com.au. Identify hero messaging, ad creative patterns, strengths, weaknesses, gaps VaultedBets could own. VaultedBets differentiates via strategy app, bet tracker, leaderboard, weekly prizes, gamification — NOT just tips.'
-    );
-    const parsed = parseJSON(raw) || {
-      competitorSummaries: [
-        { name: "ProPicksAU", heroAngle: "Pro tips from expert analysts", strengths: ["Credible analysts","Track record"], weaknesses: ["No gamification","Passive"], adPatterns: "Screenshot-heavy ROI posts" },
-        { name: "Daft Previews", heroAngle: "Previews and value picks", strengths: ["Content volume","Free entry"], weaknesses: ["No exclusivity","No community"], adPatterns: "Form guide style, data tables" },
-        { name: "VaultedX", heroAngle: "Vault-style betting intelligence", strengths: ["Similar vault positioning"], weaknesses: ["Less gamification"], adPatterns: "Unknown" }
-      ],
-      categoryGaps: ["No competitor offers interactive strategy tools","No leaderboard/prize angle","No luxury visual identity"],
-      differentiationAngles: ["Betting as a skill not luck","Community competition","Exclusive — not for everyone"],
-      creativeWhitespace: "Luxury lifestyle + data platform positioning is completely unoccupied. Every competitor uses green/black spreadsheet aesthetics."
-    };
-    results.competitors = parsed;
-    setStatus('competitors', 'done');
-    showResult('competitors', renderCompetitors(parsed));
-    log('Competitor analysis complete.');
-    checkStrategyReady();
-    setActive('strategy');
-  } catch(e) {
-    setStatus('competitors', 'error');
-    log('Competitor scraping failed: ' + e.message);
-  }
-  setBtnLoading('competitors', false);
-  document.getElementById('btn-competitors').textContent = 'RE-SCRAPE';
+    const raw = await callClaudeSearch(COMPETITOR_SYSTEM, 'Search and analyse: ProPicksAU at propicksau.com, Daft Previews at daftpreviews.com, VaultedX at vaultedx.com.au. Find gaps VaultedBets could own. VaultedBets has strategy app, bet tracker, leaderboard, prizes — NOT just tips.');
+    const parsed = parseJSON(raw) || { competitorSummaries:[{name:"ProPicksAU",heroAngle:"Expert tips",strengths:["Credible","Track record"],weaknesses:["No gamification","Passive"],adPatterns:"ROI screenshots"},{name:"Daft Previews",heroAngle:"Value picks",strengths:["Volume","Free"],weaknesses:["No exclusivity","No community"],adPatterns:"Form guide style"},{name:"VaultedX",heroAngle:"Vault intelligence",strengths:["Similar positioning"],weaknesses:["Less gamification"],adPatterns:"Unknown"}], categoryGaps:["No interactive strategy tools","No leaderboard/prize angle","No luxury visual identity"], differentiationAngles:["Betting as skill","Community competition","Exclusive vault"], creativeWhitespace:"Luxury lifestyle + data platform is completely unoccupied." };
+    results.competitors = parsed; setStatus('competitors','done'); showResult('competitors', renderCompetitors(parsed)); log('Competitor analysis complete.'); checkStrategyReady(); setActive('strategy');
+  } catch(e) { setStatus('competitors','error'); log('Competitor scraping failed: ' + e.message); }
+  setBtnLoading('competitors', false, 'RE-SCRAPE');
 }
 
 async function runStrategy() {
-  setStatus('strategy', 'running');
-  setStatus('output', 'running');
-  setBtnLoading('strategy', true);
-  log('Building 10-frame creative strategy...');
+  setStatus('strategy','running'); setStatus('output','running'); setBtnLoading('strategy',true); log('Building 10-frame creative strategy...');
   try {
-    const ctx = 'POSITIONING: ' + (results.brand.positioning||'') + 
+    const ctx = 'POSITIONING: ' + (results.brand.positioning||'') +
       '\nTONE: ' + (results.brand.toneOfVoice||[]).join(',') +
       '\nDIFFERENTIATORS: ' + (results.brand.differentiators||[]).join('; ') +
       '\nVOC HOOKS: ' + (results.voc.winningHooks||[]).join('; ') +
@@ -814,105 +659,307 @@ async function runStrategy() {
       '\nWHITESPACE: ' + (results.competitors.creativeWhitespace||'');
     const raw = await callClaude(STRATEGY_SYSTEM, 'Build 10-frame Meta ad strategy for VaultedBets:\n' + ctx);
     const parsed = parseJSON(raw);
-    if (!parsed || !parsed.frames) throw new Error('Could not parse strategy response. Please try again.');
-    results.strategy = parsed;
-    setStatus('strategy', 'done');
-    setStatus('output', 'done');
+    if (!parsed || !parsed.frames) throw new Error('Could not parse strategy. Please try again.');
+    results.strategy = parsed; setStatus('strategy','done'); setStatus('output','done');
     const html = renderStrategy(parsed);
-    showResult('strategy', html);
-    showResult('output', html);
+    showResult('strategy', html); showResult('output', html);
     document.getElementById('empty-output').style.display = 'none';
-    log('10 frames ready.');
-    setActive('output');
+    log('10 frames ready.'); setActive('output');
     document.getElementById('saveBtn').style.display = 'block';
-  } catch(e) {
-    setStatus('strategy', 'error');
-    setStatus('output', 'error');
-    log('Strategy failed: ' + e.message);
-  }
-  setBtnLoading('strategy', false);
-  document.getElementById('btn-strategy').textContent = 'RE-GENERATE';
+  } catch(e) { setStatus('strategy','error'); setStatus('output','error'); log('Strategy failed: ' + e.message); }
+  setBtnLoading('strategy', false, 'RE-GENERATE');
   document.getElementById('btn-strategy').disabled = false;
 }
 
-// ── SAVE & LIBRARY ──────────────────────────────────────────────
-
-function savePrompts() {
-  document.getElementById('saveModal').style.display = 'flex';
-  document.getElementById('saveNameInput').value = '';
-  setTimeout(() => document.getElementById('saveNameInput').focus(), 100);
+// ── RENDER ───────────────────────────────────────────────────────
+function renderTags(title, tags, color, small) {
+  if (!tags?.length) return '';
+  const items = tags.map(t => `<span class="tag" style="color:${color};border-color:${color}44;font-size:${small?'9px':'10px'};padding:${small?'2px 7px':'3px 10px'}">${esc(t)}</span>`).join('');
+  return `<div class="tags-section"><div class="tags-label">${title}</div><div class="tags-row">${items}</div></div>`;
+}
+function renderJSON(data, title) {
+  const id = 'j' + Math.random().toString(36).slice(2);
+  return `<div class="json-viewer"><div class="json-toggle" onclick="document.getElementById('${id}').style.display=document.getElementById('${id}').style.display==='block'?'none':'block'"><span class="json-toggle-label">${title}</span><span style="color:#444;font-size:11px">▶</span></div><div class="json-content" id="${id}" style="display:none"><pre>${esc(JSON.stringify(data,null,2))}</pre></div></div>`;
+}
+function renderBrand(data) {
+  return `<div class="info-grid">
+    <div class="info-block"><div class="info-label">POSITIONING</div><div class="info-value">${esc(data.positioning)}</div></div>
+    <div class="info-block"><div class="info-label">TARGET AUDIENCE</div><div class="info-value">${esc(data.targetAudience)}</div></div>
+    <div class="info-block"><div class="info-label">COMPETITIVE SPACE</div><div class="info-value">${esc(data.competitiveSpace)}</div></div>
+    <div class="info-block"><div class="info-label">TONE OF VOICE</div><div class="info-value">${esc((data.toneOfVoice||[]).join(' · '))}</div></div>
+  </div>
+  ${renderTags('VOCABULARY — USE',data.vocabulary?.use,'#00e5a0')}
+  ${renderTags('VOCABULARY — AVOID',data.vocabulary?.avoid,'#ff4444')}
+  ${renderTags('KEY DIFFERENTIATORS',data.differentiators,'#f5a623')}
+  ${renderJSON(data,'FULL BRAND DNA JSON')}`;
+}
+function renderVoC(data) {
+  const hooks = (data.winningHooks||[]).map((h,i)=>`<div class="hook-item"><span class="hook-num">0${i+1}</span><span class="hook-text">"${esc(h)}"</span></div>`).join('');
+  return `${renderTags('EMOTIONAL TRIGGERS',data.emotionalTriggers,'#f5a623')}
+  ${renderTags('EXACT PHRASES',data.exactPhrases,'#00e5a0')}
+  ${renderTags('OBJECTIONS',data.objections,'#ff6644')}
+  ${renderTags('PURCHASE DRIVERS',data.purchaseDrivers,'#a78bfa')}
+  <div style="margin-top:14px"><div class="tags-label">WINNING HOOKS</div>${hooks}</div>
+  ${renderJSON(data,'FULL VOC JSON')}`;
+}
+function renderCompetitors(data) {
+  const comps = (data.competitorSummaries||[]).map(c=>`<div class="comp-card"><div class="comp-name">${esc(c.name)}</div><div class="info-label">HERO ANGLE</div><div class="info-value" style="margin-bottom:10px">${esc(c.heroAngle)}</div><div class="comp-grid">${renderTags('STRENGTHS',c.strengths,'#00e5a0',true)}${renderTags('WEAKNESSES',c.weaknesses,'#ff4444',true)}</div><div class="info-label" style="margin-top:8px">AD PATTERNS</div><div class="info-value">${esc(c.adPatterns)}</div></div>`).join('');
+  return `${comps}<div class="whitespace-box"><div class="whitespace-label">CREATIVE WHITESPACE</div><div style="font-size:13px;color:#ccc;line-height:1.7">${esc(data.creativeWhitespace)}</div></div>${renderTags('DIFFERENTIATION ANGLES',data.differentiationAngles,'#f5a623')}${renderJSON(data,'FULL COMPETITOR JSON')}`;
+}
+function renderStrategy(data) {
+  const frames = (data.frames||[]).map(f => {
+    const tc = f.adType==='reel'?'reel':'static';
+    const pid = 'p'+f.frameNumber+'_'+Math.random().toString(36).slice(2);
+    return `<div class="frame-card">
+      <div class="frame-header" onclick="toggleFrame('fb${f.frameNumber}','ft${f.frameNumber}')">
+        <div class="frame-meta">
+          <span class="frame-type ${tc}">${(f.adType||'static').toUpperCase()}</span>
+          <span class="frame-num">FRAME ${f.frameNumber}</span>
+          <span class="frame-headline">"${esc(f.headline)}"</span>
+        </div>
+        <span id="ft${f.frameNumber}" style="color:#444;font-size:11px">▶</span>
+      </div>
+      <div class="frame-body" id="fb${f.frameNumber}">
+        <div class="frame-fields">
+          <div><div class="field-label">OBJECTIVE</div><div class="field-value">${esc(f.objective)}</div></div>
+          <div><div class="field-label">CTA</div><div class="field-value">${esc(f.ctaText)}</div></div>
+          <div style="grid-column:1/-1"><div class="field-label">SUBTEXT</div><div class="field-value">${esc(f.subtext)}</div></div>
+          <div style="grid-column:1/-1"><div class="field-label">VOC HOOK</div><div class="field-value">${esc(f.vocHook)}</div></div>
+          <div style="grid-column:1/-1"><div class="field-label">VISUAL DIRECTION</div><div class="field-value">${esc(f.visualDirection)}</div></div>
+          <div style="grid-column:1/-1"><div class="field-label">WHY IT WORKS</div><div class="field-value">${esc(f.whyItWorks)}</div></div>
+        </div>
+        <div class="prompt-box">
+          <div class="prompt-label">IMAGE PROMPT</div>
+          <div class="prompt-text" id="${pid}">${esc(f.imagePrompt)}</div>
+          <button class="btn-small" onclick="navigator.clipboard.writeText(document.getElementById('${pid}').textContent)">COPY PROMPT</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  const theme = data.campaignTheme ? `<div class="theme-box"><div class="theme-label">CAMPAIGN THEME</div><div style="font-size:14px;color:#e0e0e0;font-style:italic">"${esc(data.campaignTheme)}"</div></div>` : '';
+  const audience = data.audienceNotes ? `<div class="audience-box"><div class="audience-label">META AUDIENCE NOTES</div><div style="font-size:12px;color:#888;line-height:1.7">${esc(data.audienceNotes)}</div></div>` : '';
+  return theme + frames + audience;
+}
+function toggleFrame(bodyId, togId) {
+  const body = document.getElementById(bodyId), tog = document.getElementById(togId);
+  const open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  if (tog) tog.textContent = open ? '▶' : '▼';
 }
 
+// ── SAVE & LIBRARY ───────────────────────────────────────────────
+function savePrompts() { openModal('saveModal'); document.getElementById('saveNameInput').value = ''; setTimeout(()=>document.getElementById('saveNameInput').focus(),100); }
 async function confirmSave() {
   const name = document.getElementById('saveNameInput').value.trim();
   if (!name) { alert('Please enter a name.'); return; }
-  const btn = event.target;
-  btn.textContent = 'SAVING...'; btn.disabled = true;
   try {
     const { error } = await db.from('generations').insert({ name, strategy: results.strategy });
     if (error) throw error;
-    document.getElementById('saveModal').style.display = 'none';
-    log('Saved: ' + name);
-  } catch(e) {
-    alert('Save failed: ' + e.message);
-  }
-  btn.textContent = 'SAVE'; btn.disabled = false;
+    closeModal('saveModal'); log('Saved: ' + name);
+  } catch(e) { alert('Save failed: ' + e.message); }
 }
-
 async function openLibrary() {
   const list = document.getElementById('libraryList');
   list.innerHTML = '<div style="font-family:monospace;font-size:12px;color:#444;text-align:center;padding:40px">Loading...</div>';
-  document.getElementById('libraryModal').style.display = 'flex';
+  openModal('libraryModal');
   try {
     const { data, error } = await db.from('generations').select('*').order('created_at', { ascending: false });
     if (error) throw error;
-    if (!data.length) {
-      list.innerHTML = '<div style="font-family:monospace;font-size:12px;color:#333;text-align:center;padding:40px">No saved generations yet.</div>';
-    } else {
-      list.innerHTML = data.map((g) => `
-        <div onclick="viewGeneration('${g.id}')" style="border:1px solid #1e1e1e;border-radius:6px;padding:14px 16px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center" onmouseover="this.style.borderColor='#f5a62366'" onmouseout="this.style.borderColor='#1e1e1e'">
-          <div>
-            <div style="font-size:13px;color:#e0e0e0;font-weight:600;margin-bottom:4px">${esc(g.name)}</div>
-            <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444">${new Date(g.created_at).toLocaleDateString('en-AU', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})} · ${(g.strategy.frames||[]).length} frames</div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <span style="font-family:'Space Mono',monospace;font-size:9px;color:#f5a62388;border:1px solid #f5a62322;padding:2px 8px;border-radius:2px">VIEW</span>
-            <span onclick="event.stopPropagation();deleteGeneration('${g.id}')" style="color:#ff444488;font-size:14px;cursor:pointer" title="Delete">✕</span>
-          </div>
-        </div>`).join('');
-    }
-  } catch(e) {
-    list.innerHTML = '<div style="font-family:monospace;font-size:12px;color:#ff4444;text-align:center;padding:40px">Error: ' + e.message + '</div>';
-  }
+    if (!data.length) { list.innerHTML = '<div style="font-family:monospace;font-size:12px;color:#333;text-align:center;padding:40px">No saved generations yet.</div>'; return; }
+    list.innerHTML = data.map(g => `<div class="lib-item" onclick="viewGeneration('${g.id}')">
+      <div><div style="font-size:13px;color:#e0e0e0;font-weight:600;margin-bottom:4px">${esc(g.name)}</div>
+      <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444">${new Date(g.created_at).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})} · ${(g.strategy?.frames||[]).length} frames</div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-family:'Space Mono',monospace;font-size:9px;color:#f5a62388;border:1px solid #f5a62322;padding:2px 8px;border-radius:2px">VIEW</span>
+        <span onclick="event.stopPropagation();deleteGeneration('${g.id}')" style="color:#ff444488;font-size:16px;cursor:pointer">✕</span>
+      </div>
+    </div>`).join('');
+  } catch(e) { list.innerHTML = '<div style="color:#ff4444;font-family:monospace;font-size:12px;text-align:center;padding:40px">Error: ' + e.message + '</div>'; }
 }
-
 async function viewGeneration(id) {
-  document.getElementById('libraryModal').style.display = 'none';
-  document.getElementById('viewerModal').style.display = 'flex';
+  closeModal('libraryModal'); openModal('viewerModal');
   document.getElementById('viewerTitle').textContent = 'Loading...';
   document.getElementById('viewerContent').innerHTML = '';
   try {
     const { data, error } = await db.from('generations').select('*').eq('id', id).single();
     if (error) throw error;
     document.getElementById('viewerTitle').textContent = data.name;
-    document.getElementById('viewerDate').textContent = new Date(data.created_at).toLocaleDateString('en-AU', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('viewerDate').textContent = new Date(data.created_at).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
     document.getElementById('viewerContent').innerHTML = renderStrategy(data.strategy);
-  } catch(e) {
-    document.getElementById('viewerContent').innerHTML = '<div style="color:#ff4444;font-family:monospace;font-size:12px">Error loading: ' + e.message + '</div>';
-  }
+  } catch(e) { document.getElementById('viewerContent').innerHTML = '<div style="color:#ff4444;font-family:monospace;font-size:12px">Error: ' + e.message + '</div>'; }
 }
-
 async function deleteGeneration(id) {
   if (!confirm('Delete this generation?')) return;
-  try {
-    const { error } = await db.from('generations').delete().eq('id', id);
-    if (error) throw error;
-    openLibrary();
-  } catch(e) {
-    alert('Delete failed: ' + e.message);
-  }
+  try { const { error } = await db.from('generations').delete().eq('id', id); if (error) throw error; openLibrary(); }
+  catch(e) { alert('Delete failed: ' + e.message); }
 }
 
+// ── BRANDING HUB ─────────────────────────────────────────────────
+function handleBrandUpload(e) {
+  const file = e.target.files[0]; if (!file) return;
+  pendingBrandFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('brandUploadPreview').src = ev.target.result;
+    document.getElementById('brandAssetName').value = file.name.replace(/\.[^.]+$/, '');
+    document.getElementById('brandUploadForm').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+function selectAssetType(type) {
+  brandAssetType = type;
+  document.querySelectorAll('[id^="assettype-"]').forEach(b => b.classList.remove('selected'));
+  document.getElementById('assettype-' + type).classList.add('selected');
+}
+function cancelBrandUpload() {
+  document.getElementById('brandUploadForm').style.display = 'none';
+  document.getElementById('brandUploadInput').value = '';
+  pendingBrandFile = null;
+}
+async function confirmBrandUpload() {
+  const name = document.getElementById('brandAssetName').value.trim();
+  if (!name || !pendingBrandFile) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    const base64 = ev.target.result;
+    try {
+      const { error } = await db.from('brand_assets').insert({ name, asset_type: brandAssetType, image_base64: base64 });
+      if (error) throw error;
+      cancelBrandUpload(); loadBrandAssets();
+    } catch(e) { alert('Upload failed: ' + e.message); }
+  };
+  reader.readAsDataURL(pendingBrandFile);
+}
+async function loadBrandAssets() {
+  try {
+    const { data, error } = await db.from('brand_assets').select('*').order('created_at', { ascending: false });
+    if (error) { if (error.code === '42P01') { await createBrandAssetsTable(); return; } throw error; }
+    brandAssets = data || [];
+    renderBrandAssets();
+    loadQGBrandAssets();
+  } catch(e) { console.log('Brand assets:', e.message); }
+}
+async function createBrandAssetsTable() {
+  // Table needs to be created via Supabase dashboard SQL editor
+  console.log('brand_assets table not found - please create it in Supabase');
+}
+function renderBrandAssets() {
+  const el = document.getElementById('brandAssetsList');
+  if (!el) return;
+  if (!brandAssets.length) { el.innerHTML = '<div class="empty">No brand assets yet. Upload your first asset above.</div>'; return; }
+  const typeColors = { reference:'#f5a623', logo:'#00e5a0', other:'#a78bfa' };
+  el.innerHTML = brandAssets.map(a => `<div class="brand-asset">
+    <img src="${a.image_base64}" alt="${esc(a.name)}" onerror="this.style.display='none'"/>
+    <div class="brand-asset-info">
+      <div class="brand-asset-name">${esc(a.name)}</div>
+      <div class="brand-asset-meta">${new Date(a.created_at).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}</div>
+    </div>
+    <span class="brand-asset-tag" style="color:${typeColors[a.asset_type]||'#888'};border-color:${typeColors[a.asset_type]||'#888'}44">${(a.asset_type||'other').toUpperCase()}</span>
+    <button onclick="deleteBrandAsset('${a.id}')" style="background:transparent;border:none;color:#ff444466;font-size:16px;cursor:pointer;margin-left:8px">✕</button>
+  </div>`).join('');
+}
+async function deleteBrandAsset(id) {
+  if (!confirm('Delete this asset?')) return;
+  try { const { error } = await db.from('brand_assets').delete().eq('id', id); if (error) throw error; loadBrandAssets(); }
+  catch(e) { alert('Delete failed: ' + e.message); }
+}
+function loadQGBrandAssets() {
+  const el = document.getElementById('qgBrandAssets');
+  if (!el || !brandAssets.length) return;
+  el.innerHTML = `<div class="qg-label" style="margin-top:12px">SELECT FROM BRANDING HUB</div>` +
+    brandAssets.map(a => `<div onclick="selectQGBrandAsset('${a.id}')" style="display:flex;align-items:center;gap:10px;border:1px solid #1e1e1e;border-radius:4px;padding:8px 12px;margin-bottom:6px;cursor:pointer;transition:border-color 0.2s" onmouseover="this.style.borderColor='#f5a62366'" onmouseout="this.style.borderColor='#1e1e1e'">
+      <img src="${a.image_base64}" style="width:40px;height:40px;object-fit:cover;border-radius:3px;flex-shrink:0"/>
+      <div style="font-size:12px;color:#ccc">${esc(a.name)}</div>
+      <span style="font-family:'Space Mono',monospace;font-size:8px;color:#f5a62366;margin-left:auto">USE</span>
+    </div>`).join('');
+}
+function selectQGBrandAsset(id) {
+  const asset = brandAssets.find(a => a.id == id);
+  if (!asset) return;
+  qgRefImageBase64 = asset.image_base64.split(',')[1];
+  document.getElementById('qgRefPreview').src = asset.image_base64;
+  document.getElementById('qgRefImageBox').style.display = 'block';
+  document.getElementById('qgUploadZone').style.display = 'none';
+}
+
+// ── QUICK GENERATOR ──────────────────────────────────────────────
+function selectFormat(fmt) {
+  qgFormat = fmt;
+  document.getElementById('fmt-11').classList.toggle('selected', fmt === '1:1');
+  document.getElementById('fmt-916').classList.toggle('selected', fmt === '9:16');
+}
+function selectType(type) {
+  qgType = type;
+  document.getElementById('type-static').classList.toggle('selected', type === 'static');
+  document.getElementById('type-video').classList.toggle('selected', type === 'video');
+}
+function handleQGRefImage(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    qgRefImageBase64 = ev.target.result.split(',')[1];
+    document.getElementById('qgRefPreview').src = ev.target.result;
+    document.getElementById('qgRefImageBox').style.display = 'block';
+    document.getElementById('qgUploadZone').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+async function runQuickGen() {
+  const btn = document.getElementById('btn-qg');
+  const context = document.getElementById('qgContext').value.trim();
+  btn.classList.add('running'); btn.disabled = true; btn.textContent = 'GENERATING...';
+  document.getElementById('empty-qg').style.display = 'none';
+  document.getElementById('result-qg').style.display = 'none';
+  try {
+    const formatDesc = qgFormat === '1:1' ? '1:1 square format (1080x1080px), optimised for Facebook/Instagram feed' : '9:16 vertical format (1080x1920px), optimised for Instagram/Facebook Reels and Stories';
+    const typeDesc = qgType === 'static' ? 'STATIC image creative — still photo, no motion' : 'VIDEO/REEL creative — describe motion, camera moves, pacing, and audio mood';
+    const contextLine = context ? '\nAdditional context: ' + context : '';
+    const userPrompt = `Generate 5 distinct Vaulted Bets ad creative prompts.
+Format: ${formatDesc}
+Type: ${typeDesc}${contextLine}
+${qgRefImageBase64 ? 'A reference image of the masked man has been provided — use it to accurately describe his appearance, outfit details, mask style, and garage environment in every prompt.' : ''}
+Each prompt must have a different angle combining: shot composition variety, different ad objectives (desire/proof/urgency/objection/CTA), and different VoC hooks.`;
+    const raw = await callClaude(QUICKGEN_SYSTEM, userPrompt, qgRefImageBase64);
+    const parsed = parseJSON(raw);
+    if (!parsed || !parsed.prompts) throw new Error('Could not parse prompts. Try again.');
+    renderQuickPrompts(parsed.prompts);
+  } catch(e) {
+    document.getElementById('empty-qg').style.display = 'flex';
+    document.getElementById('empty-qg').textContent = 'Error: ' + e.message;
+  }
+  btn.classList.remove('running'); btn.disabled = false; btn.textContent = 'GENERATE 5 PROMPTS';
+}
+function renderQuickPrompts(prompts) {
+  const typeColors = { static:'#f5a623', video:'#a855f7' };
+  const tc = typeColors[qgType] || '#f5a623';
+  const html = `<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <span style="font-family:'Space Mono',monospace;font-size:9px;color:${tc};border:1px solid ${tc}44;padding:3px 10px;border-radius:2px">${qgType.toUpperCase()}</span>
+    <span style="font-family:'Space Mono',monospace;font-size:9px;color:#888;border:1px solid #2a2a2a;padding:3px 10px;border-radius:2px">${qgFormat}</span>
+    ${qgRefImageBase64 ? '<span style="font-family:\'Space Mono\',monospace;font-size:9px;color:#00e5a0;border:1px solid #00e5a022;padding:3px 10px;border-radius:2px">REFERENCE IMAGE USED</span>' : ''}
+  </div>` +
+  prompts.map(p => {
+    const pid = 'qp' + p.number + '_' + Math.random().toString(36).slice(2);
+    const vpid = 'qv' + p.number + '_' + Math.random().toString(36).slice(2);
+    return `<div class="quick-prompt-card">
+      <div class="qp-num">PROMPT 0${p.number}</div>
+      <div class="qp-angle">${esc(p.angle)}</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-family:'Space Mono',monospace;font-size:8px;color:#f5a62388;border:1px solid #f5a62322;padding:2px 7px;border-radius:2px">${esc(p.objective)}</span>
+        <span style="font-family:'Space Mono',monospace;font-size:8px;color:#00e5a088;border:1px solid #00e5a022;padding:2px 7px;border-radius:2px">${esc(p.hook)}</span>
+      </div>
+      <div style="margin-bottom:6px"><span style="font-size:13px;color:#e0e0e0;font-weight:600">"${esc(p.headline)}"</span></div>
+      <div style="font-size:12px;color:#888;line-height:1.6;margin-bottom:10px">${esc(p.subtext)}</div>
+      <div class="qp-prompt" id="${pid}">${esc(p.imagePrompt)}</div>
+      ${p.videoDirection ? `<div style="margin-top:8px;background:#06060f;border:1px solid #a855f722;border-radius:4px;padding:12px"><div style="font-family:'Space Mono',monospace;font-size:8px;color:#a855f7;margin-bottom:6px;letter-spacing:2px">VIDEO DIRECTION</div><div class="prompt-text" id="${vpid}">${esc(p.videoDirection)}</div><button class="btn-small" style="border-color:#a855f744;color:#a855f7" onclick="navigator.clipboard.writeText(document.getElementById('${vpid}').textContent)">COPY VIDEO DIRECTION</button></div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn-small" onclick="navigator.clipboard.writeText(document.getElementById('${pid}').textContent)">COPY PROMPT</button>
+        <div style="font-family:'Space Mono',monospace;font-size:9px;color:#333;padding:5px 0">${esc(p.whyItWorks)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const el = document.getElementById('result-qg');
+  el.innerHTML = html; el.style.display = 'block';
+}
 </script>
 </body>
 </html>
