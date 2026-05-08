@@ -321,25 +321,36 @@
     <div class="tab-panel" id="tab-quickgen" style="display:none">
       <div class="left">
         <div class="section-label">QUICK GENERATOR</div>
-        <p style="font-size:12px;color:#666;line-height:1.7;margin-bottom:20px">Upload a reference image, choose your format and type, and generate 5 tailored prompts in seconds. Always references the masked man and Vaulted Bets visual identity.</p>
+        <p style="font-size:12px;color:#666;line-height:1.7;margin-bottom:20px">Upload reference images, optionally pull ideas from a saved generation, choose format and type — generate 5 tailored prompts in seconds.</p>
 
-        <!-- Reference Image -->
+        <!-- Saved Generation Inspiration -->
         <div class="qg-section">
-          <div class="qg-label">REFERENCE IMAGE</div>
-          <div id="qgRefImageBox" style="display:none" class="ref-image-box">
-            <img id="qgRefPreview" src="" alt="Reference"/>
-            <div class="ref-image-overlay" onclick="document.getElementById('qgRefInput').click()">
-              <span style="font-family:'Space Mono',monospace;font-size:9px;color:#fff;letter-spacing:2px">CHANGE</span>
+          <div class="qg-label">INSPIRATION FROM SAVED GENERATION (OPTIONAL)</div>
+          <div style="display:flex;gap:6px;margin-bottom:8px">
+            <button class="btn-ghost" onclick="openInspirationPicker()" style="width:100%;font-size:9px">SELECT SAVED GENERATION</button>
+          </div>
+          <div id="qgInspirationPreview" style="display:none;background:#0a0600;border:1px solid #f5a62333;border-radius:4px;padding:10px 12px;margin-bottom:6px">
+            <div style="font-family:'Space Mono',monospace;font-size:8px;color:#f5a623;margin-bottom:4px;letter-spacing:2px">USING AS INSPIRATION</div>
+            <div id="qgInspirationName" style="font-size:12px;color:#e0e0e0;margin-bottom:6px"></div>
+            <button onclick="clearInspiration()" style="background:transparent;border:none;color:#ff444466;font-size:10px;font-family:'Space Mono',monospace;cursor:pointer;padding:0;letter-spacing:1px">✕ CLEAR</button>
+          </div>
+        </div>
+
+        <!-- Reference Images - Multiple -->
+        <div class="qg-section">
+          <div class="qg-label">REFERENCE IMAGES</div>
+          <div id="qgRefImagesGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px"></div>
+          <div style="display:flex;gap:6px">
+            <div class="upload-zone" onclick="document.getElementById('qgRefInput').click()" style="flex:1;padding:14px;margin-bottom:0">
+              <input type="file" id="qgRefInput" accept="image/*" multiple onchange="handleQGRefImages(event)"/>
+              <div style="font-family:'Space Mono',monospace;font-size:8px;color:#444;letter-spacing:2px;margin-bottom:3px">+ UPLOAD</div>
+              <div style="font-size:10px;color:#333">multiple ok</div>
+            </div>
+            <div class="upload-zone" onclick="openBrandAssetPicker()" style="flex:1;padding:14px;margin-bottom:0">
+              <div style="font-family:'Space Mono',monospace;font-size:8px;color:#444;letter-spacing:2px;margin-bottom:3px">+ FROM HUB</div>
+              <div style="font-size:10px;color:#333">branding hub</div>
             </div>
           </div>
-          <div class="upload-zone" id="qgUploadZone" onclick="document.getElementById('qgRefInput').click()">
-            <input type="file" id="qgRefInput" accept="image/*" onchange="handleQGRefImage(event)"/>
-            <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:2px;margin-bottom:6px">UPLOAD REFERENCE IMAGE</div>
-            <div style="font-size:12px;color:#333">or select from Branding Hub below</div>
-          </div>
-
-          <!-- Branding Hub quick-select -->
-          <div id="qgBrandAssets" style="margin-top:8px"></div>
         </div>
 
         <!-- Format -->
@@ -424,6 +435,25 @@
 
 <!-- MODALS -->
 
+<!-- Inspiration Picker Modal -->
+<div class="modal" id="inspirationModal">
+  <div class="modal-box wide">
+    <div class="modal-header"><div class="modal-title">SELECT GENERATION FOR INSPIRATION</div><button class="modal-close" onclick="closeModal('inspirationModal')">✕</button></div>
+    <p style="font-size:12px;color:#555;margin-bottom:16px">The selected generation's frames will be used as creative direction ideas for your 5 new prompts.</p>
+    <div id="inspirationList"></div>
+  </div>
+</div>
+
+<!-- Brand Asset Picker Modal -->
+<div class="modal" id="assetPickerModal">
+  <div class="modal-box">
+    <div class="modal-header"><div class="modal-title">SELECT FROM BRANDING HUB</div><button class="modal-close" onclick="closeModal('assetPickerModal')">✕</button></div>
+    <p style="font-size:12px;color:#555;margin-bottom:16px">Click any asset to add it as a reference image.</p>
+    <div id="assetPickerList"></div>
+  </div>
+</div>
+
+
 <!-- Save Modal -->
 <div class="modal" id="saveModal">
   <div class="modal-box" style="width:380px">
@@ -467,7 +497,8 @@ let results = { brand: null, voc: null, competitors: null, strategy: null };
 let activeStep = 'brand';
 let qgFormat = '1:1';
 let qgType = 'static';
-let qgRefImageBase64 = null;
+let qgRefImages = []; // array of {base64, name}
+let qgInspirationData = null; // saved generation used as inspiration
 let brandAssetType = 'reference';
 let pendingBrandFile = null;
 let brandAssets = [];
@@ -864,23 +895,9 @@ async function deleteBrandAsset(id) {
   catch(e) { alert('Delete failed: ' + e.message); }
 }
 function loadQGBrandAssets() {
-  const el = document.getElementById('qgBrandAssets');
-  if (!el || !brandAssets.length) return;
-  el.innerHTML = `<div class="qg-label" style="margin-top:12px">SELECT FROM BRANDING HUB</div>` +
-    brandAssets.map(a => `<div onclick="selectQGBrandAsset('${a.id}')" style="display:flex;align-items:center;gap:10px;border:1px solid #1e1e1e;border-radius:4px;padding:8px 12px;margin-bottom:6px;cursor:pointer;transition:border-color 0.2s" onmouseover="this.style.borderColor='#f5a62366'" onmouseout="this.style.borderColor='#1e1e1e'">
-      <img src="${a.image_base64}" style="width:40px;height:40px;object-fit:cover;border-radius:3px;flex-shrink:0"/>
-      <div style="font-size:12px;color:#ccc">${esc(a.name)}</div>
-      <span style="font-family:'Space Mono',monospace;font-size:8px;color:#f5a62366;margin-left:auto">USE</span>
-    </div>`).join('');
+  // Assets now accessed via openBrandAssetPicker() modal - no inline list needed
 }
-function selectQGBrandAsset(id) {
-  const asset = brandAssets.find(a => a.id == id);
-  if (!asset) return;
-  qgRefImageBase64 = asset.image_base64.split(',')[1];
-  document.getElementById('qgRefPreview').src = asset.image_base64;
-  document.getElementById('qgRefImageBox').style.display = 'block';
-  document.getElementById('qgUploadZone').style.display = 'none';
-}
+// selectQGBrandAsset replaced by addBrandAssetAsRef
 
 // ── QUICK GENERATOR ──────────────────────────────────────────────
 function selectFormat(fmt) {
@@ -893,16 +910,86 @@ function selectType(type) {
   document.getElementById('type-static').classList.toggle('selected', type === 'static');
   document.getElementById('type-video').classList.toggle('selected', type === 'video');
 }
-function handleQGRefImage(e) {
-  const file = e.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    qgRefImageBase64 = ev.target.result.split(',')[1];
-    document.getElementById('qgRefPreview').src = ev.target.result;
-    document.getElementById('qgRefImageBox').style.display = 'block';
-    document.getElementById('qgUploadZone').style.display = 'none';
-  };
-  reader.readAsDataURL(file);
+function handleQGRefImages(e) {
+  const files = Array.from(e.target.files);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      qgRefImages.push({ base64: ev.target.result.split(',')[1], name: file.name, src: ev.target.result });
+      renderRefImagesGrid();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function renderRefImagesGrid() {
+  const grid = document.getElementById('qgRefImagesGrid');
+  if (!qgRefImages.length) { grid.innerHTML = ''; return; }
+  grid.innerHTML = qgRefImages.map((img, i) => `
+    <div style="position:relative;border:1px solid #2a2a2a;border-radius:4px;overflow:hidden">
+      <img src="${img.src}" style="width:100%;height:70px;object-fit:cover;display:block"/>
+      <button onclick="removeRefImage(${i})" style="position:absolute;top:3px;right:3px;background:#000000aa;border:none;color:#ff4444;font-size:12px;cursor:pointer;border-radius:2px;padding:1px 5px">✕</button>
+      <div style="font-family:'Space Mono',monospace;font-size:7px;color:#666;padding:3px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${img.name}</div>
+    </div>`).join('');
+}
+function removeRefImage(i) {
+  qgRefImages.splice(i, 1);
+  renderRefImagesGrid();
+}
+function openBrandAssetPicker() {
+  const list = document.getElementById('assetPickerList');
+  if (!brandAssets.length) { list.innerHTML = '<div class="empty">No brand assets yet. Upload in the Branding Hub tab.</div>'; }
+  else {
+    list.innerHTML = brandAssets.map(a => `
+      <div onclick="addBrandAssetAsRef('${a.id}')" style="display:flex;align-items:center;gap:10px;border:1px solid #1e1e1e;border-radius:4px;padding:8px 12px;margin-bottom:6px;cursor:pointer" onmouseover="this.style.borderColor='#f5a62366'" onmouseout="this.style.borderColor='#1e1e1e'">
+        <img src="${a.image_base64}" style="width:44px;height:44px;object-fit:cover;border-radius:3px;flex-shrink:0"/>
+        <div>
+          <div style="font-size:12px;color:#ccc;margin-bottom:2px">${esc(a.name)}</div>
+          <div style="font-family:'Space Mono',monospace;font-size:8px;color:#555">${a.asset_type}</div>
+        </div>
+        <span style="font-family:'Space Mono',monospace;font-size:8px;color:#f5a62366;margin-left:auto">+ ADD</span>
+      </div>`).join('');
+  }
+  openModal('assetPickerModal');
+}
+function addBrandAssetAsRef(id) {
+  const asset = brandAssets.find(a => a.id == id);
+  if (!asset) return;
+  if (qgRefImages.find(r => r.name === asset.name)) { closeModal('assetPickerModal'); return; }
+  qgRefImages.push({ base64: asset.image_base64.split(',')[1], name: asset.name, src: asset.image_base64 });
+  renderRefImagesGrid();
+  closeModal('assetPickerModal');
+}
+async function openInspirationPicker() {
+  const list = document.getElementById('inspirationList');
+  list.innerHTML = '<div style="font-family:monospace;font-size:12px;color:#444;text-align:center;padding:40px">Loading...</div>';
+  openModal('inspirationModal');
+  try {
+    const { data, error } = await db.from('generations').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    if (!data.length) { list.innerHTML = '<div class="empty">No saved generations yet. Run the Intelligence Workflow first.</div>'; return; }
+    list.innerHTML = data.map(g => `
+      <div onclick="selectInspiration('${g.id}')" class="lib-item">
+        <div>
+          <div style="font-size:13px;color:#e0e0e0;font-weight:600;margin-bottom:4px">${esc(g.name)}</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444">${new Date(g.created_at).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})} · ${(g.strategy?.frames||[]).length} frames · ${(g.strategy?.campaignTheme||'')} </div>
+        </div>
+        <span style="font-family:'Space Mono',monospace;font-size:9px;color:#f5a62388;border:1px solid #f5a62322;padding:2px 8px;border-radius:2px">USE</span>
+      </div>`).join('');
+  } catch(e) { list.innerHTML = '<div style="color:#ff4444;font-family:monospace;font-size:12px;text-align:center;padding:40px">Error: ' + e.message + '</div>'; }
+}
+async function selectInspiration(id) {
+  try {
+    const { data, error } = await db.from('generations').select('*').eq('id', id).single();
+    if (error) throw error;
+    qgInspirationData = data;
+    document.getElementById('qgInspirationName').textContent = data.name;
+    document.getElementById('qgInspirationPreview').style.display = 'block';
+    closeModal('inspirationModal');
+  } catch(e) { alert('Error: ' + e.message); }
+}
+function clearInspiration() {
+  qgInspirationData = null;
+  document.getElementById('qgInspirationPreview').style.display = 'none';
 }
 async function runQuickGen() {
   const btn = document.getElementById('btn-qg');
@@ -914,12 +1001,28 @@ async function runQuickGen() {
     const formatDesc = qgFormat === '1:1' ? '1:1 square format (1080x1080px), optimised for Facebook/Instagram feed' : '9:16 vertical format (1080x1920px), optimised for Instagram/Facebook Reels and Stories';
     const typeDesc = qgType === 'static' ? 'STATIC image creative — still photo, no motion' : 'VIDEO/REEL creative — describe motion, camera moves, pacing, and audio mood';
     const contextLine = context ? '\nAdditional context: ' + context : '';
+
+    // Build inspiration block from saved generation
+    let inspirationBlock = '';
+    if (qgInspirationData && qgInspirationData.strategy?.frames) {
+      const frames = qgInspirationData.strategy.frames.slice(0, 10);
+      const ideas = frames.map(f => `- ${f.objective}: "${f.headline}" (${f.adType}) — ${f.vocHook}`).join('\n');
+      inspirationBlock = `\n\nINSPIRATION FROM SAVED GENERATION "${qgInspirationData.name}":\nUse these existing frames as loose creative direction — do NOT copy them, use them as springboards for new angles:\n${ideas}`;
+    }
+
+    const refImageNote = qgRefImages.length > 0
+      ? `${qgRefImages.length} reference image(s) provided — use them to accurately capture the masked man's appearance, outfit, mask style, garage environment, and car details in every prompt.`
+      : 'No reference image provided — use the standard Vaulted Bets visual identity description.';
+
     const userPrompt = `Generate 5 distinct Vaulted Bets ad creative prompts.
 Format: ${formatDesc}
-Type: ${typeDesc}${contextLine}
-${qgRefImageBase64 ? 'A reference image of the masked man has been provided — use it to accurately describe his appearance, outfit details, mask style, and garage environment in every prompt.' : ''}
+Type: ${typeDesc}
+Reference images: ${refImageNote}${inspirationBlock}${contextLine}
 Each prompt must have a different angle combining: shot composition variety, different ad objectives (desire/proof/urgency/objection/CTA), and different VoC hooks.`;
-    const raw = await callClaude(QUICKGEN_SYSTEM, userPrompt, qgRefImageBase64);
+
+    // Use first reference image as primary visual anchor if available
+    const primaryImage = qgRefImages.length > 0 ? qgRefImages[0].base64 : null;
+    const raw = await callClaude(QUICKGEN_SYSTEM, userPrompt, primaryImage);
     const parsed = parseJSON(raw);
     if (!parsed || !parsed.prompts) throw new Error('Could not parse prompts. Try again.');
     renderQuickPrompts(parsed.prompts);
@@ -932,10 +1035,12 @@ Each prompt must have a different angle combining: shot composition variety, dif
 function renderQuickPrompts(prompts) {
   const typeColors = { static:'#f5a623', video:'#a855f7' };
   const tc = typeColors[qgType] || '#f5a623';
-  const html = `<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+  const refBadges = qgRefImages.map(r => `<span style="font-family:'Space Mono',monospace;font-size:9px;color:#00e5a0;border:1px solid #00e5a022;padding:3px 10px;border-radius:2px">📎 ${esc(r.name)}</span>`).join('');
+  const inspBadge = qgInspirationData ? `<span style="font-family:'Space Mono',monospace;font-size:9px;color:#f5a623;border:1px solid #f5a62322;padding:3px 10px;border-radius:2px">💡 ${esc(qgInspirationData.name)}</span>` : '';
+  const html = `<div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
     <span style="font-family:'Space Mono',monospace;font-size:9px;color:${tc};border:1px solid ${tc}44;padding:3px 10px;border-radius:2px">${qgType.toUpperCase()}</span>
     <span style="font-family:'Space Mono',monospace;font-size:9px;color:#888;border:1px solid #2a2a2a;padding:3px 10px;border-radius:2px">${qgFormat}</span>
-    ${qgRefImageBase64 ? '<span style="font-family:\'Space Mono\',monospace;font-size:9px;color:#00e5a0;border:1px solid #00e5a022;padding:3px 10px;border-radius:2px">REFERENCE IMAGE USED</span>' : ''}
+    ${refBadges}${inspBadge}
   </div>` +
   prompts.map(p => {
     const pid = 'qp' + p.number + '_' + Math.random().toString(36).slice(2);
