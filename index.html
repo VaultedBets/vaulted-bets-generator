@@ -539,15 +539,35 @@ function getHeaders() {
   };
 }
 
+function getMediaType(base64) {
+  // Check if it's a data URI
+  if (base64.startsWith('data:')) {
+    const match = base64.match(/data:([^;]+);/);
+    return match ? match[1] : 'image/jpeg';
+  }
+  // Detect from raw base64 magic bytes
+  const head = base64.substring(0, 8);
+  if (head.startsWith('/9j/')) return 'image/jpeg';
+  if (head.startsWith('iVBOR')) return 'image/png';
+  if (head.startsWith('R0lGOD')) return 'image/gif';
+  if (head.startsWith('UklGR')) return 'image/webp';
+  return 'image/jpeg';
+}
+function cleanBase64(b64) {
+  // Strip data URI prefix if present
+  return b64.includes(',') ? b64.split(',')[1] : b64;
+}
 async function callClaude(system, user, imageBase64, extraImages) {
   let content = [];
-  // Add all images first, then the text
   if (imageBase64) {
-    content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } });
+    const clean = cleanBase64(imageBase64);
+    content.push({ type: 'image', source: { type: 'base64', media_type: getMediaType(imageBase64), data: clean } });
   }
   if (extraImages && extraImages.length) {
     extraImages.forEach(img => {
-      content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img.base64 } });
+      const src = img.src || img.base64;
+      const clean = cleanBase64(img.base64);
+      content.push({ type: 'image', source: { type: 'base64', media_type: getMediaType(src), data: clean } });
     });
   }
   content.push({ type: 'text', text: user });
