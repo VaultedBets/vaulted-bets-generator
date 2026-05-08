@@ -410,7 +410,7 @@
 </div>
 
 <script>
-let API_KEY = '';
+let API_KEY = localStorage.getItem('vb_api_key') || '';
 let results = { brand: null, voc: null, competitors: null, strategy: null };
 let activeStep = 'brand';
 
@@ -434,17 +434,19 @@ function startApp() {
   const key = document.getElementById('apiKeyInput').value.trim();
   if (!key.startsWith('sk-ant-')) { alert('Please enter a valid Anthropic API key (starts with sk-ant-)'); return; }
   API_KEY = key;
+  localStorage.setItem('vb_api_key', key);
   document.getElementById('apiScreen').style.display = 'none';
   document.getElementById('app').classList.add('visible');
 }
 
 document.getElementById('apiKeyInput').addEventListener('keydown', e => { if (e.key === 'Enter') startApp(); });
+if (API_KEY) { document.getElementById('apiScreen').style.display = 'none'; document.getElementById('app').classList.add('visible'); }
 
 async function callClaude(system, user) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4000, system, messages: [{ role: 'user', content: user }] }),
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, system, messages: [{ role: 'user', content: user }] }),
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || 'HTTP ' + res.status); }
   const data = await res.json();
@@ -455,7 +457,7 @@ async function callClaudeSearch(system, user) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4000, tools: [{ type: 'web_search_20250305', name: 'web_search' }], system, messages: [{ role: 'user', content: user }] }),
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, tools: [{ type: 'web_search_20250305', name: 'web_search' }], system, messages: [{ role: 'user', content: user }] }),
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || 'HTTP ' + res.status); }
   const data = await res.json();
