@@ -396,10 +396,23 @@
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
             <div>
               <div class="panel-title" style="margin-bottom:4px">BRANDING HUB</div>
-              <p style="font-size:12px;color:#555">Upload and store your brand assets. Available to reference in all prompt generation.</p>
+              <p style="font-size:12px;color:#555">Upload brand assets and competitor ads. All are analysed during prompt generation.</p>
             </div>
             <button class="btn" onclick="document.getElementById('brandUploadInput').click()">+ UPLOAD ASSET</button>
-            <input type="file" id="brandUploadInput" accept="image/*" style="display:none" onchange="handleBrandUpload(event)"/>
+            <input type="file" id="brandUploadInput" accept="image/*,video/*" style="display:none" onchange="handleBrandUpload(event)"/>
+          </div>
+
+          <!-- Competitor Ads Section -->
+          <div style="background:#0a0a0a;border:1px solid #1e1e1e;border-radius:6px;padding:20px;margin-bottom:20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <div>
+                <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;color:#ff6644;margin-bottom:3px">COMPETITOR ADS</div>
+                <p style="font-size:11px;color:#555">Upload static or video ads from ProPicksAU, Daft Previews, VaultedX etc. Claude analyses these when generating prompts.</p>
+              </div>
+              <button class="btn-ghost" onclick="document.getElementById('compAdInput').click()" style="white-space:nowrap;font-size:9px">+ ADD AD</button>
+              <input type="file" id="compAdInput" accept="image/*,video/*" style="display:none" onchange="handleCompAdUpload(event)" multiple/>
+            </div>
+            <div id="compAdsList"><div style="font-family:'Space Mono',monospace;font-size:10px;color:#2a2a2a;text-align:center;padding:20px">No competitor ads uploaded yet.</div></div>
           </div>
 
           <!-- Upload form -->
@@ -412,9 +425,10 @@
             </div>
             <div style="margin-bottom:14px">
               <div class="qg-label">ASSET TYPE</div>
-              <div class="toggle-group">
-                <button class="toggle-btn selected" id="assettype-reference" onclick="selectAssetType('reference')">REFERENCE IMAGE</button>
+              <div class="toggle-group" style="flex-wrap:wrap">
+                <button class="toggle-btn selected" id="assettype-reference" onclick="selectAssetType('reference')">REFERENCE</button>
                 <button class="toggle-btn" id="assettype-logo" onclick="selectAssetType('logo')">LOGO</button>
+                <button class="toggle-btn" id="assettype-screenshot" onclick="selectAssetType('screenshot')">SCREENSHOT</button>
                 <button class="toggle-btn" id="assettype-other" onclick="selectAssetType('other')">OTHER</button>
               </div>
             </div>
@@ -510,22 +524,95 @@ const VOC_SYSTEM = `Conversion copywriter for Australian sports betting. Analyse
 
 const COMPETITOR_SYSTEM = `Competitive intelligence analyst for Australian sports betting. Return ONLY valid JSON no markdown: {"competitorSummaries":[{"name":"str","heroAngle":"str","strengths":["s1","s2"],"weaknesses":["w1","w2"],"adPatterns":"str"}],"categoryGaps":["g1","g2","g3"],"differentiationAngles":["a1","a2","a3"],"creativeWhitespace":"str"}`;
 
-const STRATEGY_SYSTEM = `Meta ads creative strategist for Australian sports betting. Build 10-frame strategy.
-Brand: masked man (LV monogram outfit, orange spiral vortex mask), private garage, orange Lambo Urus Performante, matte black Aventador SVJ.
-Platform: VIP membership, strategy app, bet tracker, leaderboard, weekly prizes. NOT tips.
-Market: Aus male bettors 25-45. Frame flow: desire->proof->diff->objection->urgency->CTA. Mix static/reel.
-All imagePrompts must include: masked man, LV outfit, orange vortex mask, garage, orange Urus Performante, black Aventador SVJ.
-Return ONLY JSON no markdown: {"campaignTheme":"str","audienceNotes":"str","frames":[{"frameNumber":1,"objective":"str","adType":"static","headline":"str","subtext":"str","visualDirection":"str","imagePrompt":"str","ctaText":"str","vocHook":"str","whyItWorks":"str"}]}`;
+const STRATEGY_SYSTEM = `You are a world-class Meta ads creative strategist for Australian sports betting. Build a 10-frame production-ready ad creative strategy.
 
-const QUICKGEN_SYSTEM = `You are an expert Meta ad creative director for Vaulted Bets, an Australian VIP sports betting membership.
-Visual identity: masked man in Louis Vuitton monogram outfit, glowing orange spiral vortex mask, private dark garage, orange Lamborghini Urus Performante 2025, matte black Lamborghini Aventador SVJ. This is the ONLY visual style used.
-Platform USPs: strategy generator app, bet tracker, live leaderboard, weekly prize competitions, gamified mechanics. VIP membership NOT tips service.
-Target: Australian male sports bettors 25-45 who want a real edge.
+VAULTED BETS VISUAL IDENTITY:
+Background: Masked man in private dark garage. Full Louis Vuitton monogram outfit. Glowing orange spiral vortex mask. Orange Lamborghini Urus Performante 2025 + matte black Aventador SVJ. Dark cinematic lighting, reflective floor.
+Platform: VIP membership — strategy app, bet tracker, live leaderboard, weekly prizes, gamified mechanics. NOT a tips service.
+Market: Australian male sports bettors 25-45.
+Brand colours: Black, gold (#f5a623), white. Logo: "VAULTED BETS." gold top-left. CTA: gold pill button.
 
-Generate 5 distinct ad creative prompts. Each must have a different angle — mix of: different shot compositions of the masked man, different ad objectives (desire/proof/urgency/objection/CTA), different VoC hooks.
-All prompts must reference the masked man, LV outfit, orange spiral vortex mask, garage setting, and the two Lamborghinis.
+PLATFORM FEATURES to rotate across frames:
+- Strategy Generator App, Bet Tracker & P&L Dashboard, Live Leaderboard, Weekly Prize Competitions, Bet Calendar, The Vault archive
 
-Return ONLY valid JSON no markdown: {"prompts":[{"number":1,"angle":"str — short creative angle name","objective":"str — ad objective","hook":"str — VoC hook being used","headline":"str — punchy under 8 words","subtext":"str — 1-2 sentences","imagePrompt":"str — detailed Nano Banana Pro / GPT Image 2 compatible prompt","videoDirection":"str — if video: describe motion, pacing, audio mood (only if video type)","whyItWorks":"str"}]}`;
+PRODUCTION PROMPT RULES — every imagePrompt must specify:
+- Exact masked man pose and position in frame
+- All text overlays: exact wording, font size (large/medium/small), colour, alignment, position
+- Any UI mockups: device type, screen content, position in frame
+- Dark overlay opacity on background
+- Logo position (always top-left gold)
+- CTA button: exact text, gold pill, position (always bottom-centre)
+- Lighting and colour grade
+
+Frame flow: desire -> social proof -> feature highlight -> feature highlight -> differentiation -> objection handling -> more proof -> urgency -> comparison -> final CTA
+Mix of static and reel. Each frame highlights a DIFFERENT platform feature.
+CTA rotation: "Get a 7-Day Free Trial" / "Join The Vault" / "Start Free Trial"
+
+Return ONLY valid JSON no markdown: {"campaignTheme":"str","audienceNotes":"str","frames":[{
+  "frameNumber":1,
+  "objective":"str",
+  "adType":"static",
+  "featureHighlight":"str",
+  "headline":"EXACT HEADLINE TEXT",
+  "subtext":"exact subtext",
+  "ctaText":"exact CTA",
+  "visualDirection":"str",
+  "imagePrompt":"FULL production-ready prompt with all overlay specs",
+  "vocHook":"str",
+  "whyItWorks":"str"
+}]}`;
+
+const QUICKGEN_SYSTEM = `You are a world-class Meta ad creative director specialising in Australian sports betting. You produce PRODUCTION-READY ad creative briefs — every prompt must be a complete, specific, immediately executable instruction for an AI image generator like Nano Banana Pro or GPT Image 2.
+
+VAULTED BETS VISUAL IDENTITY:
+- Background: Masked man standing in private dark garage. Full Louis Vuitton monogram outfit (jacket, pants). Glowing orange spiral vortex mask replacing face. Orange Lamborghini Urus Performante 2025 and matte black Lamborghini Aventador SVJ visible behind him. Dark moody cinematic lighting, reflective garage floor, subtle orange glow.
+- Brand colours: Black, deep orange/gold (#f5a623), white
+- Logo: "VAULTED BETS." in gold, bold serif — top left corner
+- CTA options: "Get a 7-Day Free Trial" OR "Join The Vault" OR "Start Free Trial" — always in a gold pill-shaped button with black text, bottom centre
+
+PLATFORM FEATURES (use these specifically in overlays):
+- Strategy Generator App — AI-powered betting strategy builder
+- Bet Tracker & P&L Dashboard — tracks units, ROI, win rate with graphs
+- Live Leaderboard — weekly ranked competition between members
+- Weekly Prize Competitions — cash/prize pools for top performers  
+- Bet Calendar — upcoming fixtures and scheduled bets
+- The Vault — members-only content and picks archive
+
+AD TEXT OVERLAY RULES (critical — every prompt must specify):
+- Main headline: BOLD ALL-CAPS white text, large font, left-aligned or centred
+- Subtext: smaller white or light grey text below headline
+- Proof line: gold text showing social proof e.g. "+127 UNITS THIS SEASON" or "RATED #1 BY MEMBERS"
+- Dark semi-transparent overlay on background so text is readable
+- All text positions must be explicitly stated (top-left, centre-left, bottom-centre etc)
+
+IF REFERENCE IMAGES ARE PROVIDED:
+- Treat the first image as the background/character reference — match the masked man's exact appearance
+- Any additional images (app screenshots, leaderboards, etc) must be specified as UI overlays/mockups in the prompt — state exact position, size, and styling (e.g. "floating iPhone 15 Pro mockup centre-right showing the provided leaderboard screenshot")
+- Never ignore provided reference images — incorporate ALL of them explicitly
+
+COMPETITOR ADS (if provided): Analyse their layout, text placement, colour use, and CTA style. Reference their strongest ideas and improve on them for Vaulted Bets.
+
+Generate 5 DISTINCT production-ready prompts. Each must vary in:
+1. Shot composition (wide garage shot / close masked man / over-shoulder / low angle etc)
+2. Ad objective (desire / social proof / feature highlight / objection handling / urgency)
+3. Feature callout (each prompt highlights a DIFFERENT platform feature)
+4. Text overlay layout (each has different headline, proof line, subtext)
+5. CTA variant (rotate between "Get a 7-Day Free Trial" / "Join The Vault" / "Start Free Trial")
+
+Return ONLY valid JSON no markdown:
+{"prompts":[{
+  "number":1,
+  "angle":"short angle name",
+  "objective":"ad objective",
+  "hook":"VoC hook used",
+  "headline":"MAIN HEADLINE TEXT",
+  "subtext":"supporting copy",
+  "featureHighlight":"which platform feature this promotes",
+  "ctaText":"exact CTA button text",
+  "imagePrompt":"FULL production-ready prompt — must include: exact background description, masked man pose/position, all text overlays with exact wording and positions, any UI mockups with their content and positions, colour treatments, lighting, logo placement, CTA button position and text, dark overlay instructions",
+  "videoDirection":"(video only) exact motion description: camera movement, cuts, text animation timing, audio mood, pacing",
+  "whyItWorks":"1 sentence"
+}]}`;
 
 // ── API ──────────────────────────────────────────────────────────
 const HEADERS = { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' };
@@ -712,6 +799,9 @@ async function runCompetitors() {
 async function runStrategy() {
   setStatus('strategy','running'); setStatus('output','running'); setBtnLoading('strategy',true); log('Building 10-frame creative strategy...');
   try {
+    const compAdCtx = compAds && compAds.length
+      ? '\nCOMPETITOR ADS TO ANALYSE: ' + compAds.map(a => `${a.competitor} ${a.ad_type} ad: "${a.name}"`).join(', ')
+      : '';
     const ctx = 'POSITIONING: ' + (results.brand.positioning||'') +
       '\nTONE: ' + (results.brand.toneOfVoice||[]).join(',') +
       '\nDIFFERENTIATORS: ' + (results.brand.differentiators||[]).join('; ') +
@@ -719,8 +809,10 @@ async function runStrategy() {
       '\nVOC TRIGGERS: ' + (results.voc.emotionalTriggers||[]).join(', ') +
       '\nVOC OBJECTIONS: ' + (results.voc.objections||[]).join('; ') +
       '\nCOMPETITOR GAPS: ' + (results.competitors.categoryGaps||[]).join('; ') +
-      '\nWHITESPACE: ' + (results.competitors.creativeWhitespace||'');
-    const raw = await callClaude(STRATEGY_SYSTEM, 'Build 10-frame Meta ad strategy for VaultedBets:\n' + ctx);
+      '\nWHITESPACE: ' + (results.competitors.creativeWhitespace||'') + compAdCtx;
+    // Pass comp ad images to strategy generation too
+    const compAdImagesForStrat = compAds.slice(0,2).filter(a=>a.image_base64).map(a=>({base64:a.image_base64.includes(',')?a.image_base64.split(',')[1]:a.image_base64,src:a.image_base64,name:a.name}));
+    const raw = await callClaude(STRATEGY_SYSTEM, 'Build 10-frame Meta ad strategy for VaultedBets:\n' + ctx, null, compAdImagesForStrat);
     const parsed = parseJSON(raw);
     if (!parsed || !parsed.frames) throw new Error('Could not parse strategy. Please try again.');
     results.strategy = parsed; setStatus('strategy','done'); setStatus('output','done');
@@ -901,6 +993,99 @@ async function loadBrandAssets() {
     renderBrandAssets();
     loadQGBrandAssets();
   } catch(e) { console.log('Brand assets:', e.message); }
+  // Also load competitor ads
+  loadCompAds();
+}
+
+let compAds = [];
+async function loadCompAds() {
+  try {
+    const { data, error } = await db.from('competitor_ads').select('*').order('created_at', { ascending: false });
+    if (error) { if (error.code === '42P01') { createCompAdsTableMsg(); return; } throw error; }
+    compAds = data || [];
+    renderCompAds();
+  } catch(e) { console.log('Comp ads:', e.message); }
+}
+function createCompAdsTableMsg() {
+  const el = document.getElementById('compAdsList');
+  if (el) el.innerHTML = '<div style="font-family:monospace;font-size:10px;color:#ff4444;padding:10px">Run this SQL in Supabase: CREATE TABLE competitor_ads (id uuid default gen_random_uuid() primary key, name text, competitor text, ad_type text, image_base64 text, created_at timestamptz default now());</div>';
+}
+function handleCompAdUpload(e) {
+  const files = Array.from(e.target.files);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      pendingCompAd = { base64: ev.target.result, name: file.name, file };
+      showCompAdForm(ev.target.result, file.name);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+let pendingCompAd = null;
+function showCompAdForm(src, name) {
+  const existing = document.getElementById('compAdForm');
+  if (existing) existing.remove();
+  const form = document.createElement('div');
+  form.id = 'compAdForm';
+  form.style.cssText = 'background:#060606;border:1px solid #2a2a2a;border-radius:6px;padding:16px;margin-bottom:12px';
+  form.innerHTML = `
+    <div style="font-family:'Space Mono',monospace;font-size:8px;letter-spacing:2px;color:#ff6644;margin-bottom:10px">NEW COMPETITOR AD</div>
+    <img src="${src}" style="width:100%;max-height:160px;object-fit:contain;border-radius:4px;margin-bottom:12px;border:1px solid #1e1e1e"/>
+    <div style="margin-bottom:8px">
+      <div class="qg-label">COMPETITOR NAME</div>
+      <input type="text" id="compAdCompetitor" placeholder="e.g. ProPicksAU" style="width:100%;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:4px;color:#ccc;padding:8px 10px;font-family:'Space Mono',monospace;font-size:11px;outline:none;margin-bottom:6px"/>
+      <input type="text" id="compAdName" value="${name.replace(/\.[^.]+$/,'')}" placeholder="Ad name" style="width:100%;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:4px;color:#ccc;padding:8px 10px;font-family:'Space Mono',monospace;font-size:11px;outline:none"/>
+    </div>
+    <div style="margin-bottom:12px">
+      <div class="qg-label">TYPE</div>
+      <div class="toggle-group">
+        <button class="toggle-btn selected" id="catype-static" onclick="selectCAType('static')">STATIC</button>
+        <button class="toggle-btn" id="catype-video" onclick="selectCAType('video')">VIDEO</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="confirmCompAdUpload()" style="flex:1;font-size:9px">SAVE AD</button>
+      <button class="btn-ghost" onclick="document.getElementById('compAdForm').remove()" style="flex:1">CANCEL</button>
+    </div>`;
+  document.getElementById('compAdsList').prepend(form);
+}
+let selectedCAType = 'static';
+function selectCAType(t) {
+  selectedCAType = t;
+  document.querySelectorAll('[id^="catype-"]').forEach(b => b.classList.remove('selected'));
+  document.getElementById('catype-' + t)?.classList.add('selected');
+}
+async function confirmCompAdUpload() {
+  const competitor = document.getElementById('compAdCompetitor').value.trim() || 'Unknown';
+  const name = document.getElementById('compAdName').value.trim() || 'Ad';
+  if (!pendingCompAd) return;
+  try {
+    const { error } = await db.from('competitor_ads').insert({ name, competitor, ad_type: selectedCAType, image_base64: pendingCompAd.base64 });
+    if (error) throw error;
+    document.getElementById('compAdForm')?.remove();
+    pendingCompAd = null;
+    loadCompAds();
+  } catch(e) { alert('Save failed: ' + e.message); }
+}
+function renderCompAds() {
+  const el = document.getElementById('compAdsList');
+  if (!el) return;
+  if (!compAds.length) { el.innerHTML = '<div style="font-family:monospace;font-size:10px;color:#2a2a2a;text-align:center;padding:20px">No competitor ads uploaded yet.</div>'; return; }
+  const typeC = { static:'#f5a623', video:'#a855f7' };
+  el.innerHTML = compAds.map(a => `<div class="brand-asset">
+    <img src="${a.image_base64}" style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #2a2a2a;flex-shrink:0" onerror="this.style.display='none'"/>
+    <div class="brand-asset-info">
+      <div class="brand-asset-name">${esc(a.name)}</div>
+      <div class="brand-asset-meta">${esc(a.competitor)} · ${new Date(a.created_at).toLocaleDateString('en-AU',{day:'numeric',month:'short'})}</div>
+    </div>
+    <span class="brand-asset-tag" style="color:${typeC[a.ad_type]||'#888'};border-color:${typeC[a.ad_type]||'#888'}44">${(a.ad_type||'static').toUpperCase()}</span>
+    <button onclick="deleteCompAd('${a.id}')" style="background:transparent;border:none;color:#ff444466;font-size:16px;cursor:pointer;margin-left:8px">✕</button>
+  </div>`).join('');
+}
+async function deleteCompAd(id) {
+  if (!confirm('Delete this ad?')) return;
+  try { const { error } = await db.from('competitor_ads').delete().eq('id', id); if (error) throw error; loadCompAds(); }
+  catch(e) { alert('Delete failed: ' + e.message); }
 }
 async function createBrandAssetsTable() {
   // Table needs to be created via Supabase dashboard SQL editor
@@ -1053,9 +1238,18 @@ Reference images: ${refImageNote}${inspirationBlock}${contextLine}
 Each prompt must have a different angle combining: shot composition variety, different ad objectives (desire/proof/urgency/objection/CTA), and different VoC hooks.`;
 
     // Use first reference image as primary visual anchor if available
+    // Include competitor ad context
+    let compAdContext = '';
+    if (compAds && compAds.length) {
+      const adSummary = compAds.map(a => `${a.competitor} (${a.ad_type}): ${a.name}`).join(', ');
+      compAdContext = `\n\nCOMPETITOR ADS IN LIBRARY: ${adSummary}\nAnalyse these competitor ad styles when generating prompts — reference their strongest techniques and improve on them for Vaulted Bets.`;
+    }
+    const finalPrompt = userPrompt + compAdContext;
+    // Pass competitor ad images as extra context if available (up to 2)
+    const compAdImages = compAds.slice(0, 2).filter(a => a.image_base64).map(a => ({ base64: a.image_base64.includes(',') ? a.image_base64.split(',')[1] : a.image_base64, src: a.image_base64, name: a.name }));
     const primaryImage = qgRefImages.length > 0 ? qgRefImages[0].base64 : null;
-    const extraImages = qgRefImages.length > 1 ? qgRefImages.slice(1) : [];
-    const raw = await callClaude(QUICKGEN_SYSTEM, userPrompt, primaryImage, extraImages);
+    const extraImages = [...(qgRefImages.length > 1 ? qgRefImages.slice(1) : []), ...compAdImages];
+    const raw = await callClaude(QUICKGEN_SYSTEM, finalPrompt, primaryImage, extraImages);
     const parsed = parseJSON(raw);
     if (!parsed || !parsed.prompts) throw new Error('Could not parse prompts. Try again.');
     renderQuickPrompts(parsed.prompts);
