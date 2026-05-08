@@ -420,15 +420,12 @@ const VOC_SYSTEM = `You are a conversion copywriter specialising in Australian s
 
 const COMPETITOR_SYSTEM = `You are a competitive intelligence analyst for Australian sports betting marketing. Analyse competitors and identify gaps. Return ONLY valid JSON, no markdown, no backticks, no explanation: {"competitorSummaries":[{"name":"name","heroAngle":"main hook","strengths":["s1","s2"],"weaknesses":["w1","w2"],"adPatterns":"patterns"}],"categoryGaps":["g1","g2","g3"],"differentiationAngles":["a1","a2","a3"],"creativeWhitespace":"what no competitor does that Vaulted Bets could own"}`;
 
-const STRATEGY_SYSTEM = `You are a Meta ads creative strategist for Australian sports betting. Build a 10-frame Meta ad creative strategy.
-
-Brand: masked man (Louis Vuitton monogram outfit, orange spiral vortex mask) in private garage with orange Lamborghini Urus Performante 2025 and matte black Lamborghini Aventador SVJ. All image prompts use this garage setting.
-Platform: strategy app, bet tracker, live leaderboard, weekly prizes, gamified mechanics. VIP membership NOT tips.
-Market: Australian male sports bettors 25-45.
-Frame flow: desire -> proof -> differentiation -> objection handling -> urgency -> CTA. Mix static and reel.
-All image prompts must reference: masked man, Louis Vuitton outfit, orange spiral vortex mask, private garage, orange Lamborghini Urus Performante, matte black Aventador SVJ.
-
-Return ONLY valid JSON, no markdown, no backticks, no explanation: {"campaignTheme":"theme","audienceNotes":"Meta targeting notes","frames":[{"frameNumber":1,"objective":"goal","adType":"static","headline":"under 8 words","subtext":"1-2 sentences","visualDirection":"detailed visual desc","imagePrompt":"full prompt using garage setting","ctaText":"CTA","vocHook":"VoC insight used","whyItWorks":"1 sentence"}]}`;
+const STRATEGY_SYSTEM = `Meta ads creative strategist for Australian sports betting. Build a 10-frame strategy.
+Brand: masked man (LV monogram outfit, orange spiral vortex mask), private garage, orange Lambo Urus Performante, matte black Aventador SVJ.
+Platform: VIP membership, strategy app, bet tracker, leaderboard, weekly prizes. NOT tips.
+Market: Aus male bettors 25-45. Frame flow: desire->proof->diff->objection->urgency->CTA. Mix static/reel.
+All imagePrompts must include: masked man, LV outfit, orange vortex mask, garage, orange Urus Performante, black Aventador SVJ.
+Return ONLY JSON, no markdown: {"campaignTheme":"str","audienceNotes":"str","frames":[{"frameNumber":1,"objective":"str","adType":"static","headline":"str","subtext":"str","visualDirection":"str","imagePrompt":"str","ctaText":"str","vocHook":"str","whyItWorks":"str"}]}`;
 
 function startApp() {
   const key = document.getElementById('apiKeyInput').value.trim();
@@ -465,8 +462,22 @@ async function callClaudeSearch(system, user) {
 }
 
 function parseJSON(raw) {
+  if (!raw) return null;
+  // Try direct parse after cleaning
   try { return JSON.parse(raw.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim()); } catch {}
-  const m = raw.match(/\{[\s\S]*\}/); if (m) { try { return JSON.parse(m[0]); } catch {} }
+  // Try extracting largest JSON object
+  const matches = raw.match(/\{[\s\S]*\}/g);
+  if (matches) {
+    const sorted = matches.sort((a,b) => b.length - a.length);
+    for (const m of sorted) { try { return JSON.parse(m); } catch {} }
+  }
+  // Try fixing common issues: trailing commas, single quotes
+  try {
+    const cleaned = raw.replace(/```json\n?/g,'').replace(/```\n?/g,'')
+      .replace(/,\s*}/g,'}').replace(/,\s*]/g,']').trim();
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (m) return JSON.parse(m[0]);
+  } catch {}
   return null;
 }
 
@@ -748,9 +759,17 @@ async function runStrategy() {
   setBtnLoading('strategy', true);
   log('Building 10-frame creative strategy...');
   try {
-    const ctx = 'BRAND DNA:\n' + JSON.stringify(results.brand, null, 2) + '\n\nVOICE OF CUSTOMER:\n' + JSON.stringify(results.voc, null, 2) + '\n\nCOMPETITOR GAPS:\n' + JSON.stringify(results.competitors, null, 2);
-    const raw = await callClaude(STRATEGY_SYSTEM, 'Build a complete 10-frame Meta ad creative strategy for VaultedBets using this intelligence:\n\n' + ctx);
+    const ctx = 'POSITIONING: ' + (results.brand.positioning||'') + 
+      '\nTONE: ' + (results.brand.toneOfVoice||[]).join(',') +
+      '\nDIFFERENTIATORS: ' + (results.brand.differentiators||[]).join('; ') +
+      '\nVOC HOOKS: ' + (results.voc.winningHooks||[]).join('; ') +
+      '\nVOC TRIGGERS: ' + (results.voc.emotionalTriggers||[]).join(', ') +
+      '\nVOC OBJECTIONS: ' + (results.voc.objections||[]).join('; ') +
+      '\nCOMPETITOR GAPS: ' + (results.competitors.categoryGaps||[]).join('; ') +
+      '\nWHITESPACE: ' + (results.competitors.creativeWhitespace||'');
+    const raw = await callClaude(STRATEGY_SYSTEM, 'Build 10-frame Meta ad strategy for VaultedBets:\n' + ctx);
     const parsed = parseJSON(raw);
+    if (!parsed || !parsed.frames) throw new Error('Could not parse strategy response. Please try again.');
     results.strategy = parsed;
     setStatus('strategy', 'done');
     setStatus('output', 'done');
